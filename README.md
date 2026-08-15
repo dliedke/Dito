@@ -2,8 +2,7 @@
 
 Um jogo de adivinhar palavras em português, no estilo Wordle/Termo — 100% front-end, sem build, sem dependências de servidor.
 
-🔗 **Repositório:** https://github.com/dliedke/Dito
-🔗 **Jogar (após ativar o GitHub Pages):** https://dliedke.github.io/Dito/
+🔗 **Jogar** https://dliedke.github.io/Dito/
 
 ## Como jogar 
 
@@ -23,11 +22,12 @@ Acentos são preenchidos automaticamente: digitar `avo` conta como `avô`. O ced
 - **Modo difícil** — todas as dicas já reveladas precisam ser reaproveitadas no palpite seguinte.
 - **Aceitar qualquer palavra** — desliga a validação contra o dicionário, permitindo digitar qualquer combinação de letras.
 - **Dicas ao final** — revela progressivamente letras da resposta quando as tentativas acabam (se habilitado).
-- **Tema claro/escuro** com alternância pelo botão ◐.
-- **Placar da sessão** — jogos, vitórias, aproveitamento e sequência.
+- **Tema claro/escuro** com alternância pelo botão ◐, refletido inclusive na cor da barra do navegador no mobile.
+- **Placar** — jogos, vitórias, aproveitamento e sequência, salvo entre visitas.
+- **Efeitos sonoros** sintetizados via Web Audio (tecla, cores do palpite, vitória/derrota, erro), com botão de mudo 🔊/🔇.
 - **Compartilhar resultado** — copia um resumo do jogo para a área de transferência.
 - **Teclado virtual** com teclado físico funcionando em paralelo, e totalmente acessível (`aria-live`, `role="grid"`, etc.).
-- **Responsivo**, pensado para mobile e desktop.
+- **Responsivo e otimizado para mobile** — respeita as áreas seguras (notch/home indicator) em iOS, alvos de toque maiores, sem "elástico" de scroll, ajustes para telas estreitas e para paisagem.
 
 ## Estrutura do projeto
 

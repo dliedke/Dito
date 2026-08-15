@@ -28,7 +28,7 @@ for(let n=3;n<=8;n++){
    ESTADO
    ========================================================= */
 const state = {
-  len:5, tries:6, free:false, hard:false, hints:true,
+  len:5, tries:6, free:false, hard:false, hints:true, sound:true,
   answer:'', answerRaw:'',
   rows:[], current:'', row:0,
   status:'playing',
@@ -53,6 +53,45 @@ const kb = document.getElementById('keyboard');
 const toast = document.getElementById('toast');
 
 /* =========================================================
+   SOM — sintetizado via Web Audio, sem arquivos externos
+   ========================================================= */
+let actx = null;
+function getCtx(){
+  if(!actx){
+    try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return null; }
+  }
+  if(actx.state === 'suspended') actx.resume();
+  return actx;
+}
+function beep({freq=440, dur=.09, type='sine', vol=.16, delay=0, slideTo=null}={}){
+  if(!state.sound) return;
+  const ctx = getCtx();
+  if(!ctx) return;
+  const t0 = ctx.currentTime + delay;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t0);
+  if(slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(vol, t0 + .008);
+  gain.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(t0);
+  osc.stop(t0 + dur + .02);
+}
+const sfx = {
+  key: () => beep({freq:520, dur:.045, type:'square', vol:.05}),
+  del: () => beep({freq:280, dur:.05, type:'square', vol:.05}),
+  correct: (i=0) => beep({freq:660, dur:.12, vol:.16, delay:i*.06, slideTo:880}),
+  present: (i=0) => beep({freq:440, dur:.11, vol:.13, delay:i*.06}),
+  absent:  (i=0) => beep({freq:180, dur:.09, vol:.07, delay:i*.06}),
+  error:   () => beep({freq:140, dur:.15, type:'sawtooth', vol:.12}),
+  win:  () => [523,659,784,1047].forEach((f,i)=>beep({freq:f, dur:.16, vol:.16, delay:i*.11})),
+  lose: () => [392,330,262].forEach((f,i)=>beep({freq:f, dur:.22, vol:.13, delay:i*.13})),
+};
+
+/* =========================================================
    CONFIGURAÇÃO
    ========================================================= */
 function buildSegments(){
@@ -74,7 +113,7 @@ function buildSegments(){
   }
 }
 function saveSettings(){
-  store.set('dito:settings',{len:state.len,tries:state.tries,free:state.free,hard:state.hard,hints:state.hints,theme:document.documentElement.dataset.theme});
+  store.set('dito:settings',{len:state.len,tries:state.tries,free:state.free,hard:state.hard,hints:state.hints,sound:state.sound,theme:document.documentElement.dataset.theme});
 }
 
 /* =========================================================
@@ -202,11 +241,13 @@ function press(k){
   }
   if(k==='↵') return submit();
   if(k==='⌫'){
+    if(state.current.length) sfx.del();
     state.current = state.current.slice(0,-1);
     return renderCurrent();
   }
   if(/^[a-z]$/.test(k) && state.current.length < state.len){
     state.current += k;
+    sfx.key();
     renderCurrent();
   }
 }
@@ -287,6 +328,7 @@ function submit(){
         tile.classList.add(res[i]);
         // mostra o acento da resposta quando a letra está certa no lugar
         tile.textContent = res[i]==='correct' ? state.answerRaw[i] : g[i];
+        sfx[res[i]]();
       },250);
     }, i*180);
     // prioridade: verde > azul > cinza
@@ -313,6 +355,7 @@ function submit(){
 }
 
 function reject(msg){
+  sfx.error();
   say(msg);
   const row=board.children[state.row];
   if(row){ row.classList.add('shake'); setTimeout(()=>row.classList.remove('shake'),500); }
@@ -333,6 +376,7 @@ function finish(won){
   hintEl.innerHTML='';
   state.hintKey=null;
   paintKeyboard();
+  won ? sfx.win() : sfx.lose();
   stats.played++;
   if(won){ stats.wins++; stats.streak++; } else { stats.streak=0; }
   store.set('dito:stats', stats);
@@ -382,9 +426,21 @@ document.getElementById('btnConfig').onclick=e=>{
   c.classList.toggle('hidden');
   e.currentTarget.setAttribute('aria-expanded', !c.classList.contains('hidden'));
 };
+function updateThemeColor(){
+  const meta = document.getElementById('metaTheme');
+  if(meta) meta.setAttribute('content', document.documentElement.dataset.theme==='dark' ? '#101216' : '#f2f3f5');
+}
 document.getElementById('btnTheme').onclick=()=>{
   const d=document.documentElement;
   d.dataset.theme = d.dataset.theme==='dark' ? 'light' : 'dark';
+  updateThemeColor();
+  saveSettings();
+};
+document.getElementById('btnSound').onclick=e=>{
+  state.sound = !state.sound;
+  e.currentTarget.setAttribute('aria-pressed', state.sound);
+  e.currentTarget.textContent = state.sound ? '🔊' : '🔇';
+  if(state.sound) getCtx(); // desbloqueia o áudio no gesto do usuário
   saveSettings();
 };
 document.getElementById('optFree').onchange=e=>{ state.free=e.target.checked; saveSettings(); };
@@ -408,6 +464,7 @@ document.getElementById('optHard').onchange=e=>{
     state.len=s.len??5; state.tries=s.tries??6;
     state.free=!!s.free; state.hard=!!s.hard;
     state.hints = s.hints !== false;
+    state.sound = s.sound !== false;
     if(s.theme) document.documentElement.dataset.theme=s.theme;
     document.getElementById('optFree').checked=state.free;
     document.getElementById('optHard').checked=state.hard;
@@ -415,6 +472,10 @@ document.getElementById('optHard').onchange=e=>{
   } else if(window.matchMedia('(prefers-color-scheme: dark)').matches){
     document.documentElement.dataset.theme='dark';
   }
+  const btnSound = document.getElementById('btnSound');
+  btnSound.setAttribute('aria-pressed', state.sound);
+  btnSound.textContent = state.sound ? '🔊' : '🔇';
+  updateThemeColor();
   const st = await store.get('dito:stats');
   if(st) Object.assign(stats, st);
   buildSegments();

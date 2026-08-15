@@ -34,7 +34,9 @@ html[data-theme="dark"]{
   --absent-ink:#8b929d;
 }
 *{box-sizing:border-box}
-html,body{height:100%}
+html,body{height:100%; overscroll-behavior-y:contain}
+@supports (height: 100dvh){ html,body{height:100dvh} }
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{
   margin:0;
   background:var(--bg);
@@ -45,8 +47,9 @@ body{
   align-items:center;
   overflow-x:hidden;
   -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
 }
-button{font-family:inherit;color:inherit;cursor:pointer}
+button{font-family:inherit;color:inherit;cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none}
 button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--present);outline-offset:2px}
 
 /* ---------- topo ---------- */
@@ -55,10 +58,11 @@ header{
   border-bottom:1px solid var(--line);
   background:var(--panel);
   display:flex;
+  flex-wrap:wrap;
   align-items:center;
   justify-content:space-between;
-  gap:8px;
-  padding:10px 12px;
+  gap:8px;row-gap:6px;
+  padding:max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 10px max(12px, env(safe-area-inset-left));
   position:sticky;top:0;z-index:20;
 }
 .brand{display:flex;gap:4px;align-items:center}
@@ -79,16 +83,17 @@ header{
 .brand span:nth-child(3){animation-delay:.25s}
 .brand span:nth-child(4){animation-delay:.35s;background:var(--correct);color:var(--correct-ink)}
 @keyframes brandflip{from{transform:rotateX(-90deg);opacity:0}to{transform:none;opacity:1}}
-.tools{display:flex;gap:6px}
+.tools{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
 .icon-btn{
   border:1px solid var(--line);
   background:transparent;
   border-radius:8px;
-  height:36px;min-width:36px;padding:0 10px;
+  height:40px;min-width:40px;padding:0 10px;
   font-size:13px;font-weight:700;
   display:inline-flex;align-items:center;gap:6px;
 }
 .icon-btn:hover{background:var(--key)}
+.icon-btn[aria-pressed="false"]{opacity:.5}
 
 /* ---------- barra de configuração ---------- */
 .config{
@@ -105,11 +110,11 @@ header{
 .seg{display:flex;background:var(--key);border-radius:8px;padding:3px;gap:2px}
 .seg button{
   border:0;background:transparent;border-radius:6px;
-  width:30px;height:28px;font-weight:700;font-size:14px;
+  width:32px;height:32px;font-weight:700;font-size:14px;
 }
 .seg button[aria-pressed="true"]{background:var(--correct);color:var(--correct-ink)}
-.check{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:500;cursor:pointer}
-.check input{width:16px;height:16px;accent-color:var(--present)}
+.check{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:500;cursor:pointer;padding:4px 0}
+.check input{width:18px;height:18px;accent-color:var(--present);flex:none}
 
 /* ---------- tabuleiro ---------- */
 main{
@@ -213,7 +218,7 @@ main{
 #keyboard{
   width:100%;max-width:520px;
   display:flex;flex-direction:column;gap:6px;
-  padding:8px 6px 14px;
+  padding:8px max(6px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
 }
 .krow{display:flex;gap:5px;justify-content:center}
 .key{
@@ -235,7 +240,8 @@ main{
 /* ---------- painel lateral ---------- */
 .sheet{
   position:fixed;inset:0;background:rgba(0,0,0,.45);
-  display:none;place-items:center;z-index:80;padding:16px;
+  display:none;place-items:center;z-index:80;
+  padding:max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
 }
 .sheet.open{display:grid}
 .sheet-card{
@@ -261,4 +267,21 @@ main{
 .stat span{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft)}
 .close{margin-top:12px;width:100%}
 @media (max-width:400px){ .key{height:46px;font-size:14px} }
+
+/* telas bem estreitas (ex.: iPhone SE) — evita que os botões do topo estourem a largura */
+@media (max-width:380px){
+  header{gap:4px;padding-left:max(8px, env(safe-area-inset-left));padding-right:max(8px, env(safe-area-inset-right))}
+  .icon-btn{height:36px;min-width:36px;padding:0 8px;font-size:12px;gap:4px}
+  .brand span{width:22px;height:24px;font-size:16px}
+}
+
+/* celular em modo paisagem — pouca altura disponível, reduz respiros verticais */
+@media (max-height:480px) and (orientation:landscape){
+  .config{padding:6px 12px}
+  main{padding:6px 8px;gap:6px}
+  #keyboard{padding:6px max(6px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left))}
+  .key{height:38px}
+  .krow{gap:4px}
+}
+
 @media (prefers-reduced-motion:reduce){ *{animation:none !important;transition:none !important} }

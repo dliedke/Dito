@@ -384,17 +384,6 @@ function submit(){
   const delay = state.len*180 + 320;
   setTimeout(paintKeyboard, delay);
 
-  // leva pra próxima linha as letras verde-limão (posição confirmada) já
-  // descobertas em qualquer tentativa anterior, travadas nas posições certas
-  const nextCur = Array(state.len).fill('');
-  const nextLocked = new Set();
-  state.rows.forEach(r=>{
-    r.res.forEach((v,i)=>{ if(v==='correct'){ nextCur[i] = r.guess[i]; nextLocked.add(i); } });
-  });
-  state.cur = nextCur;
-  state.locked = nextLocked;
-  const firstEmpty = state.cur.findIndex(c=>!c);
-  state.cursor = firstEmpty === -1 ? 0 : firstEmpty;
   state.row++;
 
   if(g === state.answer){
@@ -404,10 +393,21 @@ function submit(){
     state.status='lose';
     setTimeout(()=>finish(false), delay);
   } else {
+    // leva pra próxima linha as letras verde-limão (posição confirmada) já
+    // descobertas em qualquer tentativa anterior, travadas nas posições certas
+    const nextCur = Array(state.len).fill('');
+    const nextLocked = new Set();
+    state.rows.forEach(r=>{
+      r.res.forEach((v,i)=>{ if(v==='correct'){ nextCur[i] = r.guess[i]; nextLocked.add(i); } });
+    });
+    state.cur = nextCur;
+    state.locked = nextLocked;
+    const firstEmpty = state.cur.findIndex(c=>!c);
+    state.cursor = firstEmpty === -1 ? 0 : firstEmpty;
+    renderCurrent();
     setTimeout(maybeHint, delay + 150);
   }
   markActiveRow();
-  renderCurrent();
 }
 
 function reject(msg){

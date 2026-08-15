@@ -188,7 +188,7 @@ function drawKeyboard(){
     row.forEach(k=>{
       const b=document.createElement('button');
       b.className='key'+(k==='↵'||k==='⌫'?' wide':'');
-      b.textContent = k==='↵' ? 'Enter' : k==='⌫' ? 'Apagar' : k;
+      b.textContent = k==='↵' ? 'Enter' : k==='⌫' ? 'Del' : k;
       b.dataset.key=k;
       b.onclick=()=>press(k);
       div.appendChild(b);

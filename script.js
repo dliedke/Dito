@@ -33,7 +33,8 @@ const state = {
   rows:[], cur:[], cursor:0, row:0,
   status:'playing',
   letterState:{},
-  ghosts:{}, hintLevel:0
+  ghosts:{}, hintLevel:0,
+  carried:new Set()
 };
 const stats = { played:0, wins:0, streak:0 };
 
@@ -132,6 +133,7 @@ function newGame(){
   state.letterState = {};
   state.ghosts = {};
   state.hintLevel = 0;
+  state.carried = new Set();
   endEl.innerHTML = '';
   hintEl.innerHTML = '';
   drawBoard();
@@ -263,16 +265,19 @@ function press(k){
   if(k==='⌫'){
     if(state.cur[state.cursor]){
       state.cur[state.cursor] = '';
+      state.carried.delete(state.cursor);
       sfx.del();
     } else if(state.cursor > 0){
       state.cursor--;
       state.cur[state.cursor] = '';
+      state.carried.delete(state.cursor);
       sfx.del();
     }
     return renderCurrent();
   }
   if(/^[a-z]$/.test(k)){
     state.cur[state.cursor] = k;
+    state.carried.delete(state.cursor);
     sfx.key();
     if(state.cursor < state.len-1) state.cursor++;
     renderCurrent();
@@ -298,6 +303,7 @@ function renderCurrent(){
     tile.textContent = ch || (ghost ? ghost : '');
     tile.classList.toggle('filled', !!ch);
     tile.classList.toggle('ghost', !ch && !!ghost);
+    tile.classList.toggle('carried', !!ch && state.carried.has(i));
     tile.classList.toggle('active', i===state.cursor);
   });
 }
@@ -348,6 +354,8 @@ function submit(){
   const res = evaluate(g, state.answer);
   state.rows.push({guess:g, res});
   const row = board.children[state.row];
+  row.classList.remove('active-row');
+  [...row.children].forEach(t=>t.classList.remove('active'));
 
   [...row.children].forEach((tile,i)=>{
     setTimeout(()=>{
@@ -368,8 +376,17 @@ function submit(){
   const delay = state.len*180 + 320;
   setTimeout(paintKeyboard, delay);
 
-  state.cur = Array(state.len).fill('');
-  state.cursor = 0;
+  // leva pra próxima linha as letras amarelas (presentes, posição errada) já
+  // digitadas, pra o jogador não precisar redigitar o que já descobriu
+  const nextCur = Array(state.len).fill('');
+  const nextCarried = new Set();
+  for(let i=0;i<state.len;i++){
+    if(res[i]==='present'){ nextCur[i] = g[i]; nextCarried.add(i); }
+  }
+  state.cur = nextCur;
+  state.carried = nextCarried;
+  const firstEmpty = state.cur.findIndex(c=>!c);
+  state.cursor = firstEmpty === -1 ? 0 : firstEmpty;
   state.row++;
 
   if(g === state.answer){
@@ -382,6 +399,7 @@ function submit(){
     setTimeout(maybeHint, delay + 150);
   }
   markActiveRow();
+  renderCurrent();
 }
 
 function reject(msg){

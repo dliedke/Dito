@@ -150,6 +150,7 @@ main{
 .tile.absent{background:var(--absent);border-color:var(--absent);color:var(--absent-ink)}
 .tile.ghost{color:var(--tile-typed);opacity:.6;font-style:italic}
 .row.active-row .tile{cursor:pointer}
+.tile.carried{border-color:var(--present)}
 .tile.active{border-color:var(--correct);box-shadow:0 0 0 2px var(--correct) inset}
 .hintbar{
   display:flex;align-items:center;gap:9px;

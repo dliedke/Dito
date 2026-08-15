@@ -268,7 +268,10 @@ function press(k){
       state.carried.delete(state.cursor);
       sfx.del();
     } else if(state.cursor > 0){
-      state.cursor--;
+      // pula pra trás as casinhas já preenchidas automaticamente (amarelas)
+      let i = state.cursor - 1;
+      while(i > 0 && state.carried.has(i)) i--;
+      state.cursor = i;
       state.cur[state.cursor] = '';
       state.carried.delete(state.cursor);
       sfx.del();
@@ -279,7 +282,10 @@ function press(k){
     state.cur[state.cursor] = k;
     state.carried.delete(state.cursor);
     sfx.key();
-    if(state.cursor < state.len-1) state.cursor++;
+    // pula pra frente as casinhas já preenchidas automaticamente (amarelas)
+    let i = state.cursor + 1;
+    while(i < state.len-1 && state.carried.has(i)) i++;
+    if(i < state.len) state.cursor = i;
     renderCurrent();
   }
 }

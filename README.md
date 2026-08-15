@@ -9,7 +9,7 @@ Um jogo de adivinhar palavras em português, no estilo Wordle/Termo — 100% fro
 Descubra a palavra secreta antes que acabem as tentativas. Cada palpite precisa ter o número de letras escolhido.
 
 - 🟩 **Verde** — a letra está na palavra e na posição certa.
-- 🟨 **Amarelo** — a letra está na palavra, mas em outra posição.
+- 🟦 **Azul** — a letra está na palavra, mas em outra posição.
 - ⬛ **Cinza** — a letra não aparece na palavra.
 
 Acentos são preenchidos automaticamente: digitar `avo` conta como `avô`. O cedilha entra como `C`.

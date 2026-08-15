@@ -216,6 +216,11 @@ main{
   background:var(--correct);color:var(--correct-ink);
 }
 .btn.ghost{background:var(--key);color:var(--key-ink)}
+.btn:disabled{opacity:.45;pointer-events:none}
+
+/* ---------- ações acima do tabuleiro (dica de grupo) ---------- */
+.hint-actions{display:flex;justify-content:center}
+.hint-actions .btn{padding:8px 14px;font-size:13px}
 
 /* ---------- teclado ---------- */
 #keyboard{

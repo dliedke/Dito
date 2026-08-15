@@ -25,6 +25,83 @@ for(let n=3;n<=8;n++){
 }
 
 /* =========================================================
+   GRUPOS TEMÁTICOS — usados na dica manual "palavra relacionada".
+   Cobre todo o dicionário: cada palavra pertence a exatamente um grupo
+   (a primeira categoria que a lista, quando ela caberia em mais de uma).
+   Palavras sem grupo natural (pronomes, conectivos) ficam em "gramatica";
+   conceitos sem domínio concreto ficam em "abstrato".
+   Sempre em forma NORMALIZADA (sem acento), igual às chaves de DICT.
+   ========================================================= */
+const GROUPS_RAW = {
+animais:`ave ema cao boi pio fera gado gato leao lobo pata pato pena rato rena sapo teia urso vaca cabra cobra bicho mosca tigre zebra frango abelha aranha camelo cavalo coelho girafa inseto ovelha tucano formiga galinha cachorro cascavel elefante gaivotas lagostas sardinha serpente vagalume abelhudo animal`,
+plantas:`rosa mata mato relva selva galho grama flora cravo areia flores violeta magnolia girassol limoeiro vinhedos alface couve cenoura repolho pepino aspargos vegetais folha trigo estufa estufas colheita`,
+frutas:`uva uvas caju maca pera manga amora limao banana cereja abacaxi laranja morango morangos castanha`,
+comida:`mel ovo pao sal ceia bolo doce gema grao ovos papa sopa leite massa molho pasta prato torta fruta frutas cacau almoco batata cebola comida farofa feijao geleia lanche legume pastel salada tomate legumes picanha pimenta tempero vinagre sabores receita salgado biscoito caramelo linguica macarrao manteiga mostarda salgados receitas recheado assado sabor caldos jantar`,
+bebidas:`cha mate sumo vinho bebida cerveja azeite`,
+cores:`cor azul roxo preto verde negro amarelo dourado dourados`,
+corpo:`asa fel pes bico cara dedo mama olho osso pele unha veia tato corpo nariz ombro palma peito pulso punho rosto dente unhas bracos cabeca cabelo costas ouvido lingua cintura`,
+saude:`dor pus calo cura doer dose fome fumo sede sono saude tosse doente ferida remedio terapia catapora dolorido gordura dieta gesso remedios`,
+casa:`lar pia cama lixo mesa sala sofa vaso copo porta banho cesta tenda caneca colher escada gaveta janela tapete tomada tigela cortina espelho panelas banheiro chuveiro cobertor poltrona torneira vassoura sabonete molduras caixinha quarto travessa casa sabao limpeza`,
+construcao:`cal chao muro teto piso obra pedra torre ponte pilar forno fosso parede portao predio tijolo abrigo buraco telhado cimento granito varanda quintal barraco barragem elevador patio ferragem ferrugem`,
+objetos:`elo fio pua cabo fita lata lima lona mola pano peca pino rolo saco tubo vela roda mapa chave garfo funil leque metal pente pires prego vidro tinta barril boneca botoes brinco canudo palito bandeja garrafa garrafas martelo tesoura barbante capacete pulseira compasso agulha faca farol linha pilha tampas enfeite balancas holofote mochilas`,
+roupas:`veu bota capa joia luva meia moda sola elmo bolsa malha camisa casaco chapeu veludo tecido chinelo jaqueta calcados sandalia vestidos figurino estampas listra colar roupas`,
+natureza:`ceu foz lua luz mar rio sol fogo lago ilha duna mina onda poco solo vale gota pau campo canal lagoa monte praia serra terra areias colina oceano riacho poeira planeta floresta montanha natureza universo paisagem estrelas rios costa ilhas mundo globo solar deserto fogueira`,
+clima:`neve raio seca gelo calor clima chuva nuvem vento quente fresco gelado trovoada ventania granizos tropical`,
+lugares:`ala bar rua zoo sul vila zona loja cova hotel museu banco circo palco praca salao porto norte bairro cidade centro capela parque sertao castelo fabrica fazenda fazendas mercado piscina piscinas pousada garagem academia livraria peixaria hospital farmacia suburbio nordeste quilombo interior celeiros pastagem jardim lavoura moradia costeira brasil sudeste ruas lugar reino saida lugares terreno vitrines`,
+transporte:`ida nau via voo jato moto nave rota barco bonde carro navio motor pista viagem subida caminho estrada rodovia trajeto passeio aeronave caminhao bagagens embarque viajante gasolina atalho freio barcos carrao vagoes turismo`,
+profissoes:`juiz guia poeta padre servo doutor medico mestre patrao artista cantora diretor gerente maestro padeiro pedreiro palhaco soldado capitao dentista diretora escritor ministro operario pescador porteiro reporter mecanico almeida`,
+pessoas:`rei povo amigo casal gente jovem rapaz turma amigos casado colega criado garota gemeos humano morena mulher pessoa senhor unidos galera negrao membro crianca inimigo maioria sujeito turista vizinho ninguem usuario espanhol holandes princesa namorado solteiro vizinhos herdeiro seguidor sonhador defensor duque grupo publico visita`,
+familia:`avo mae pai tia tio irma nora pais prima esposa marido familia amores amizade amizades`,
+emocoes:`ira amor medo furia humor raiva alegre desejo prazer alegria carinho coragem coragens loucura orgulho saudade vontade nervoso curioso tristeza desprezo surpresa conforto ardor beijo beijos abracos sorriso`,
+qualidades:`bem boa bom cru nua oco sao vil bela duro feia feio fiel fina fino fofo leve mole mudo nova novo puro rara real ruim seco sujo viva vivo bravo capaz cheio claro doido duplo falso feliz forte gordo grave igual justo largo limpo linda lindo livre longo macio magro maior mesmo nobre pobre surdo tenso unido vazio velho extra antigo barato basico bonito escuro famoso imovel ligado madura maduro melhor pronto abertos folgado moderno molhado pequeno popular secreto simples sozinho urgente inteiro criativo delicado distante especial favorito generoso habitual impresso incrivel indireto informal inocente moderado obrigado oportuno paciente perfeito poderoso racional radiante restante superior tremendo noturnas entregue presente zangado salvo moleza marcado`,
+acoes:`ama amo dar fez fui rir soa vai vao vem ver vim vir viu voa come fuga gira giro indo lida liga mora olha pare pega pilo quer sobe soco tapa tira toca voar andar comer falar ficar guiar jogar lutar morar mudar nadar ousar ouvir pagar parar pesar poder remar rodar saber secar subir tirar virar viver apagar atrair borrar cantar cobrir contar conter cortar dancar deitar deixar entrar ferver ganhar gostar juntar limpar lembra mandar marcar mentir montar nascer partir passar pensar perder pintar poluir provar querer saltar seguir sentir servir sofrer sonhar tentar tornar tratar trocar vencer vender voltar viajar vibrar torcer agradar apertar assinar aterrar comecar comprar decidir demorar dividir embalar exercer habitar lembrar plantar quebrar receber remover retirar aparece andando bebendo falando prefiro precisa aprender carregar comandar desenhar empurrar escolher imprimir inspirar permitir praticar preparar produzir realizar reciclar recolher triunfar adivinha assinado apartado pinta quero volta correr levada quebra sopro`,
+tempo:`ano dia era vez ora data hoje hora fase antes noite tarde tempo turno pausa agenda sabado semana minuto manha domingo horario janeiro inverno segundo durante setembro domingos feriados semanais sempre`,
+numeros:`dez mil par dois doze onze sete zero nono soma cinco vinte dobro numero quatro milhao metade contagem quarteto unidades medida quilo grau peso altura largura estatura tamanho tres`,
+escola:`giz cola nota exame letra livro papel escola estudo livros caderno ciencia cultura leitura escrita escrito palavra exemplo educacao mestrado planilha prova verbo caneta tabela palestra`,
+trabalho:`vaga curso tarefa emprego negocio produto projeto reuniao arranjo assunto contato consumo comercio concurso ocupacao proposta trabalho processo programa promessa empresas despesas formacao destaque sucata greve marca pedido reserva`,
+dinheiro:`juro luxo lote ouro rico taxa custo lucro preco renda valor juros dolar boleto compra cartao oferta fortuna riqueza heranca valores dinheiro deposito diamante cristal cristais conta ganho prata venda coroas tesouro`,
+arte:`som tom duo cena foto mito musa mago fada rima lira canto danca drama gaita disco balada cinema musica novela poesia teatro sereia enigma figura bateria romance revista pintura talento desfile carnaval festival guitarra harmonia historia fantasia pandeiro trio ritmo charuto festa lenda magia sarau quadro sessao roteiro cenarios`,
+esportes:`gol dado luta pipa taco remo isca ioga polo jogo trave pesca salto rival atleta jogada treino rodada campeao esporte torneio combate parada premio`,
+comunicacao:`alo ola voz rol ata dica nome oral selo carta frase senha sinal jornal imagem pagina bilhete correio noticia telefone mensagem discurso resposta pergunta panfleto bilhetes imagens colunas cartaza grito radio rumor artigo`,
+religiao:`cruz deus rito sino natal santo judeu templo sagrado feitico religiao ilusao`,
+justica:`lei reu cela voto crime pacto ordem preso presa debate guarda prisao ataque direito justica policia governo prisoes tribunal ditadura conselho decisoes ronda trono tropa votar`,
+ciencia:`gas eco cubo gene rede tela laser metro virus usina efeito matriz origem oculos padrao circulo sistema mecanica evolucao hipotese servidor vibracao relogio fosforo vapor`,
+gramatica:`ela ele meu mim nao nem nos por seu sim sub tal tao teu tua uma sou cada como elas eles essa esse este fora isso nada nele onde para quem todo tudo cima entre essas junto outro nossa nosso quase apenas embora porque quando qualquer longe perto`,
+abstrato:`dom fim mal paz base caso erro fato fila lado meio meta modo tema tipo topo vida rumo tabu forma ideal ideia parte passo perda ponta razao resto senso sorte visao uniao morte trato corte queda avanco beleza dentro estado estilo futuro inicio missao motivo objeto perigo perfil aspecto atencao chegada clareza cuidado defeito desafio destino detalhe entrada escolha esforco maneira memoria mistura postura questao segredo sucesso vitoria virtude exagero abandono abertura acidente aventura curtidas diversao esquerda grandeza inclusao infancia novidade problema silencio tradicao verdades virtudes dispensa encontro cuidados opcao erros etapa coisa dever fardo favor forca plano posse sonho frente mancha pedaco trecho mudanca tumulto vantagem`
+};
+
+/* nome de cada grupo como aparece na dica (as chaves acima são sem acento) */
+const GROUP_LABEL = {
+  animais:'animais', plantas:'plantas', frutas:'frutas', comida:'comida',
+  bebidas:'bebidas', cores:'cores', corpo:'partes do corpo', saude:'saúde',
+  casa:'coisas de casa', construcao:'construção', objetos:'objetos',
+  roupas:'roupas', natureza:'natureza', clima:'clima', lugares:'lugares',
+  transporte:'transporte', profissoes:'profissões', pessoas:'pessoas',
+  familia:'família', emocoes:'emoções', qualidades:'qualidades',
+  acoes:'ações', tempo:'tempo', numeros:'números e medidas', escola:'escola',
+  trabalho:'trabalho', dinheiro:'dinheiro', arte:'arte', esportes:'esportes',
+  comunicacao:'comunicação', religiao:'religião', justica:'justiça',
+  ciencia:'ciência', gramatica:'palavras gramaticais', abstrato:'ideias abstratas'
+};
+
+/* categoria → lista de palavras, e o mapa reverso usado na dica */
+const GROUPS = {};
+const wordGroup = {};
+for(const cat in GROUPS_RAW){
+  GROUPS[cat] = GROUPS_RAW[cat].trim().split(/\s+/);
+  GROUPS[cat].forEach(w=>{ if(!wordGroup[w]) wordGroup[w] = cat; });
+}
+
+/* devolve a forma com acento de uma palavra normalizada, procurando em
+   todos os tamanhos do dicionário */
+function rawForm(normWord){
+  for(let n=3;n<=8;n++){
+    if(DICT[n].words.has(normWord)) return DICT[n].words.get(normWord);
+  }
+  return normWord;
+}
+
+/* =========================================================
    ESTADO
    ========================================================= */
 const state = {
@@ -34,7 +111,9 @@ const state = {
   status:'playing',
   letterState:{},
   ghosts:{}, hintLevel:0,
-  locked:new Set()
+  locked:new Set(),
+  groupHintUsed:false,
+  gameId:0
 };
 const stats = { played:0, wins:0, streak:0 };
 
@@ -121,6 +200,7 @@ function saveSettings(){
    NOVO JOGO
    ========================================================= */
 function newGame(){
+  state.gameId++; // invalida setTimeouts pendentes de uma partida anterior
   const pool = DICT[state.len].keys;
   const key = pool[Math.floor(Math.random()*pool.length)];
   state.answer = key;
@@ -134,12 +214,14 @@ function newGame(){
   state.ghosts = {};
   state.hintLevel = 0;
   state.locked = new Set();
+  state.groupHintUsed = false;
   endEl.innerHTML = '';
   hintEl.innerHTML = '';
   drawBoard();
   drawKeyboard();
   markActiveRow();
   renderCurrent();
+  setGroupHintBtn(true);
 }
 
 function drawBoard(){
@@ -255,24 +337,64 @@ function revelarPosicao(nivel){
   showHint(`${abertura} A <b>${idx+1}ª letra</b> é <b>${letra}</b> — já deixei marcada no tabuleiro.`);
 }
 
+/* botão manual "dica de grupo": mostra outra palavra do mesmo grupo temático
+   da resposta, ou, se a palavra não tiver grupo conhecido, revela uma letra
+   extra sem dizer a posição. Uso único por partida. */
+function setGroupHintBtn(enabled){
+  const b = document.getElementById('btnGroupHint');
+  if(b) b.disabled = !enabled;
+}
+function useGroupHint(){
+  if(state.status!=='playing' || state.groupHintUsed) return;
+  state.groupHintUsed = true;
+  setGroupHintBtn(false);
+
+  const cat = wordGroup[state.answer];
+  const opcoes = cat ? GROUPS[cat].filter(w=>w!==state.answer) : [];
+  if(cat && opcoes.length){
+    const outra = opcoes[Math.floor(Math.random()*opcoes.length)];
+    const nome = GROUP_LABEL[cat] || cat;
+    showHint(`A palavra secreta é do grupo <b>${nome}</b> — como <b>${rawForm(outra).toUpperCase()}</b>.`);
+    return;
+  }
+
+  // sem grupo conhecido: revela uma letra que ainda não apareceu no teclado,
+  // sem indicar em qual posição ela entra
+  const reveladas = new Set(Object.keys(state.letterState).filter(k=>state.letterState[k]!=='absent'));
+  const faltando = [...new Set(state.answer.split(''))].filter(c=>!reveladas.has(c));
+  if(!faltando.length){
+    showHint('Você já conhece todas as letras da palavra secreta.');
+    return;
+  }
+  const c = faltando[Math.floor(Math.random()*faltando.length)];
+  showHint(`A palavra secreta tem a letra <b>${c.toUpperCase()}</b> (a posição fica por sua conta).`);
+}
+
 /* =========================================================
    ENTRADA
    ========================================================= */
 function press(k){
+  // 'ending': acerto/erro final já detectado, mas a animação de revelação
+  // ainda não terminou — ignora tudo (inclusive Enter) até finish() rodar,
+  // senão um Enter repetido nesse meio-tempo reinicia o jogo antes da hora
+  // e corrompe a tela de fim (setTimeout antigo mexendo no jogo novo)
+  if(state.status==='ending') return;
   if(state.status!=='playing') {
     if(k==='↵') newGame();
     return;
   }
   if(k==='↵') return submit();
   if(k==='⌫'){
-    if(state.cur[state.cursor]){
+    // nunca apaga uma casinha travada (verde-limão, posição confirmada), mesmo
+    // que o cursor tenha pousado nela (ex.: era a última casinha da linha)
+    if(state.cur[state.cursor] && !state.locked.has(state.cursor)){
       state.cur[state.cursor] = '';
       sfx.del();
-    } else if(state.cursor > 0){
-      // pula pra trás as casinhas já travadas (verde-limão, posição confirmada)
+    } else {
+      // pula pra trás as casinhas já travadas até achar uma editável
       let i = state.cursor - 1;
       while(i > 0 && state.locked.has(i)) i--;
-      if(!state.locked.has(i)){
+      if(i >= 0 && !state.locked.has(i)){
         state.cursor = i;
         state.cur[i] = '';
         sfx.del();
@@ -284,15 +406,17 @@ function press(k){
     if(state.locked.has(state.cursor)) return;
     state.cur[state.cursor] = k;
     sfx.key();
-    // pula pra frente as casinhas já travadas (verde-limão, posição confirmada)
+    // pula pra frente as casinhas já travadas (verde-limão, posição confirmada),
+    // incluindo a última casinha da linha (por isso "< state.len", não "state.len-1")
     let i = state.cursor + 1;
-    while(i < state.len-1 && state.locked.has(i)) i++;
+    while(i < state.len && state.locked.has(i)) i++;
     if(i < state.len) state.cursor = i;
     renderCurrent();
   }
 }
 document.addEventListener('keydown', e=>{
   if(e.metaKey||e.ctrlKey||e.altKey) return;
+  if(e.repeat) return; // ignora repetição automática ao segurar a tecla (Enter em especial)
   if(document.querySelector('.sheet.open')){ if(e.key==='Escape') closeSheets(); return; }
   if(e.key==='Enter') press('↵');
   else if(e.key==='Backspace') press('⌫');
@@ -308,10 +432,14 @@ function renderCurrent(){
   [...row.children].forEach((tile,i)=>{
     const ch = state.cur[i];
     const ghost = state.ghosts[i];
-    tile.textContent = ch || (ghost ? ghost : '');
+    const locked = state.locked.has(i);
+    // travada (verde-limão): mostra sempre a letra com acento/til da resposta.
+    // state.cur guarda a letra sem acento (é o que é comparado com o dicionário),
+    // então sem isso a casinha travada aparecia sem acento na linha atual.
+    tile.textContent = ch ? (locked ? state.answerRaw[i] : ch) : (ghost ? ghost : '');
     tile.classList.toggle('filled', !!ch);
     tile.classList.toggle('ghost', !ch && !!ghost);
-    tile.classList.toggle('locked', state.locked.has(i));
+    tile.classList.toggle('locked', locked);
     tile.classList.toggle('active', i===state.cursor);
   });
 }
@@ -365,10 +493,17 @@ function submit(){
   row.classList.remove('active-row');
   [...row.children].forEach(t=>t.classList.remove('active'));
 
+  // trava pra todo callback adiado abaixo: se uma partida nova começar
+  // (newGame() incrementa gameId) antes do setTimeout disparar, o callback
+  // vira no-op em vez de mexer no estado do jogo seguinte
+  const gameId = state.gameId;
+
   [...row.children].forEach((tile,i)=>{
     setTimeout(()=>{
+      if(state.gameId!==gameId) return;
       tile.classList.add('reveal');
       setTimeout(()=>{
+        if(state.gameId!==gameId) return;
         tile.classList.add(res[i]);
         // mostra o acento da resposta quando a letra está certa no lugar
         tile.textContent = res[i]==='correct' ? state.answerRaw[i] : g[i];
@@ -382,16 +517,28 @@ function submit(){
   });
 
   const delay = state.len*180 + 320;
-  setTimeout(paintKeyboard, delay);
+  setTimeout(()=>{ if(state.gameId===gameId) paintKeyboard(); }, delay);
 
   state.row++;
 
   if(g === state.answer){
-    state.status='win';
-    setTimeout(()=>{ row.classList.add('win'); finish(true); }, delay);
+    // estado transitório: já sabemos que ganhou, mas só vira 'win' de fato
+    // (e Enter volta a reiniciar o jogo) quando a animação terminar — ver
+    // guard de state.status==='ending' em press()
+    state.status='ending';
+    setTimeout(()=>{
+      if(state.gameId!==gameId) return;
+      row.classList.add('win');
+      state.status='win';
+      finish(true);
+    }, delay);
   } else if(state.row >= state.tries){
-    state.status='lose';
-    setTimeout(()=>finish(false), delay);
+    state.status='ending';
+    setTimeout(()=>{
+      if(state.gameId!==gameId) return;
+      state.status='lose';
+      finish(false);
+    }, delay);
   } else {
     // leva pra próxima linha as letras verde-limão (posição confirmada) já
     // descobertas em qualquer tentativa anterior, travadas nas posições certas
@@ -405,7 +552,7 @@ function submit(){
     const firstEmpty = state.cur.findIndex(c=>!c);
     state.cursor = firstEmpty === -1 ? 0 : firstEmpty;
     renderCurrent();
-    setTimeout(maybeHint, delay + 150);
+    setTimeout(()=>{ if(state.gameId===gameId) maybeHint(); }, delay + 150);
   }
   markActiveRow();
 }
@@ -431,6 +578,7 @@ const ELOGIOS=['Impressionante!','Excelente!','Muito bem!','Boa!','Ufa!','Essa f
 function finish(won){
   hintEl.innerHTML='';
   state.hintKey=null;
+  setGroupHintBtn(false);
   paintKeyboard();
   won ? sfx.win() : sfx.lose();
   stats.played++;
@@ -441,7 +589,7 @@ function finish(won){
   const box=document.createElement('div');
   box.className='endbar';
   box.innerHTML = `
-    <div class="sub">${won ? ELOGIOS[Math.min(state.row-1, ELOGIOS.length-1)] : 'A palavra era'}</div>
+    <div class="sub">${won ? ELOGIOS[Math.max(0, Math.min(state.row-1, ELOGIOS.length-1))] : 'A palavra era'}</div>
     <div class="word">${state.answerRaw}</div>
     <div class="sub">${won ? `Acertou em ${state.row} de ${state.tries}` : 'Fica para a próxima'}</div>
     <div class="actions">
@@ -476,6 +624,7 @@ function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classLi
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeSheets);
 document.querySelectorAll('.sheet').forEach(s=>s.addEventListener('click',e=>{ if(e.target===s) closeSheets(); }));
 document.getElementById('btnHelp').onclick=()=>document.getElementById('sheetHelp').classList.add('open');
+document.getElementById('btnGroupHint').onclick=useGroupHint;
 document.getElementById('btnStats').onclick=()=>{ renderStats(); document.getElementById('sheetStats').classList.add('open'); };
 document.getElementById('btnConfig').onclick=e=>{
   const c=document.getElementById('config');

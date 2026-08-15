@@ -30,7 +30,7 @@ for(let n=3;n<=8;n++){
 const state = {
   len:5, tries:6, free:false, hard:false, hints:true, sound:true,
   answer:'', answerRaw:'',
-  rows:[], current:'', row:0,
+  rows:[], cur:[], cursor:0, row:0,
   status:'playing',
   letterState:{},
   ghosts:{}, hintLevel:0
@@ -125,7 +125,8 @@ function newGame(){
   state.answer = key;
   state.answerRaw = DICT[state.len].words.get(key);
   state.rows = [];
-  state.current = '';
+  state.cur = Array(state.len).fill('');
+  state.cursor = 0;
   state.row = 0;
   state.status = 'playing';
   state.letterState = {};
@@ -135,6 +136,8 @@ function newGame(){
   hintEl.innerHTML = '';
   drawBoard();
   drawKeyboard();
+  markActiveRow();
+  renderCurrent();
 }
 
 function drawBoard(){
@@ -153,12 +156,29 @@ function drawBoard(){
   }
 }
 
+/* clicar numa casinha da linha ativa move o "cursor" pra ela, permitindo
+   digitar a letra em qualquer posição, não só na próxima vazia */
+board.addEventListener('click', e=>{
+  const tile = e.target.closest('.tile');
+  if(!tile || state.status!=='playing') return;
+  const row = tile.parentElement;
+  if(Number(row.dataset.row) !== state.row) return;
+  state.cursor = Number(tile.dataset.col);
+  renderCurrent();
+});
+
+function markActiveRow(){
+  [...board.children].forEach((row,i)=>{
+    row.classList.toggle('active-row', i===state.row && state.status==='playing');
+  });
+}
+
 /* =========================================================
    TECLADO
    ========================================================= */
 const KEYS=[['q','w','e','r','t','y','u','i','o','p'],
             ['a','s','d','f','g','h','j','k','l'],
-            ['↵','z','x','c','v','b','n','m','⌫']];
+            ['⌫','z','x','c','v','b','n','m','↵']];
 function drawKeyboard(){
   kb.innerHTML='';
   KEYS.forEach(row=>{
@@ -241,13 +261,20 @@ function press(k){
   }
   if(k==='↵') return submit();
   if(k==='⌫'){
-    if(state.current.length) sfx.del();
-    state.current = state.current.slice(0,-1);
+    if(state.cur[state.cursor]){
+      state.cur[state.cursor] = '';
+      sfx.del();
+    } else if(state.cursor > 0){
+      state.cursor--;
+      state.cur[state.cursor] = '';
+      sfx.del();
+    }
     return renderCurrent();
   }
-  if(/^[a-z]$/.test(k) && state.current.length < state.len){
-    state.current += k;
+  if(/^[a-z]$/.test(k)){
+    state.cur[state.cursor] = k;
     sfx.key();
+    if(state.cursor < state.len-1) state.cursor++;
     renderCurrent();
   }
 }
@@ -266,11 +293,12 @@ function renderCurrent(){
   const row = board.children[state.row];
   if(!row) return;
   [...row.children].forEach((tile,i)=>{
-    const ch = state.current[i];
+    const ch = state.cur[i];
     const ghost = state.ghosts[i];
     tile.textContent = ch || (ghost ? ghost : '');
     tile.classList.toggle('filled', !!ch);
     tile.classList.toggle('ghost', !ch && !!ghost);
+    tile.classList.toggle('active', i===state.cursor);
   });
 }
 
@@ -308,8 +336,8 @@ function hardModeError(guess){
 }
 
 function submit(){
-  const g = state.current;
-  if(g.length < state.len) return reject('Faltam letras');
+  if(state.cur.includes('')) return reject('Faltam letras');
+  const g = state.cur.join('');
   const dict = DICT[state.len];
   if(!state.free && !dict.words.has(g)) return reject('Palavra não está na lista');
   if(state.hard){
@@ -340,7 +368,8 @@ function submit(){
   const delay = state.len*180 + 320;
   setTimeout(paintKeyboard, delay);
 
-  state.current='';
+  state.cur = Array(state.len).fill('');
+  state.cursor = 0;
   state.row++;
 
   if(g === state.answer){
@@ -352,6 +381,7 @@ function submit(){
   } else {
     setTimeout(maybeHint, delay + 150);
   }
+  markActiveRow();
 }
 
 function reject(msg){

@@ -5,7 +5,7 @@ Um jogo de adivinhar palavras em português, no estilo Wordle/Termo — 100% fro
 🔗 **Repositório:** https://github.com/dliedke/Dito
 🔗 **Jogar (após ativar o GitHub Pages):** https://dliedke.github.io/Dito/
 
-## Como jogar
+## Como jogar 
 
 Descubra a palavra secreta antes que acabem as tentativas. Cada palpite precisa ter o número de letras escolhido.
 

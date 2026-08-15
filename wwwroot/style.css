@@ -115,6 +115,21 @@ header{
 .seg button[aria-pressed="true"]{background:var(--correct);color:var(--correct-ink)}
 .check{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:500;cursor:pointer;padding:4px 0}
 .check input{width:18px;height:18px;accent-color:var(--present);flex:none}
+#selTheme{
+  border:1px solid var(--line);background:var(--key);color:var(--key-ink);
+  border-radius:8px;height:32px;padding:0 8px;font-weight:600;font-size:13px;
+  max-width:160px;
+}
+.field.locked{opacity:.45;pointer-events:none}
+.check.locked{opacity:.45;pointer-events:none}
+
+/* ---------- abas de modo (diário / infinito) ---------- */
+.mode-tabs{display:flex;justify-content:center;gap:6px;background:var(--key);border-radius:10px;padding:3px}
+.mode-tabs .tab{
+  border:0;background:transparent;border-radius:8px;
+  padding:7px 14px;font-weight:700;font-size:13px;color:var(--key-ink);opacity:.6;
+}
+.mode-tabs .tab[aria-pressed="true"]{background:var(--panel);opacity:1;box-shadow:0 1px 2px rgba(0,0,0,.08)}
 
 /* ---------- tabuleiro ---------- */
 main{
@@ -219,7 +234,7 @@ main{
 .btn:disabled{opacity:.45;pointer-events:none}
 
 /* ---------- ações acima do tabuleiro (dica de grupo) ---------- */
-.hint-actions{display:flex;justify-content:center}
+.hint-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
 .hint-actions .btn{padding:8px 14px;font-size:13px}
 
 /* ---------- teclado ---------- */
@@ -273,6 +288,12 @@ main{
 .stat{flex:1;background:var(--key);border-radius:10px;padding:10px 4px}
 .stat b{display:block;font-size:22px;font-family:"Bricolage Grotesque",sans-serif}
 .stat span{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft)}
+.dist{display:flex;flex-direction:column;gap:4px;margin:6px 0 14px}
+.distrow{display:flex;align-items:center;gap:8px}
+.distlabel{width:12px;font-size:12px;font-weight:700;color:var(--ink-soft);flex:none}
+.distbar{flex:1;height:16px;background:var(--key);border-radius:4px;overflow:hidden}
+.distfill{height:100%;background:var(--correct);border-radius:4px;transition:width .3s ease;min-width:2px}
+.distcount{width:22px;text-align:right;font-size:12px;font-weight:700;color:var(--ink-soft);flex:none}
 .close{margin-top:12px;width:100%}
 @media (max-width:400px){ .key{height:46px;font-size:14px} }
 

@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=10">
+<link rel="stylesheet" href="style.css?v=14">
 </head>
 <body>
 
@@ -37,14 +37,24 @@
     <label>Tentativas</label>
     <div class="seg" id="segTries" role="group" aria-label="Número de tentativas"></div>
   </div>
+  <div class="field" id="fieldTheme">
+    <label>Tema</label>
+    <select id="selTheme" aria-label="Tema das palavras"></select>
+  </div>
   <label class="check"><input type="checkbox" id="optHints" checked> Dicas no fim</label>
   <label class="check"><input type="checkbox" id="optFree"> Aceitar qualquer palavra</label>
   <label class="check"><input type="checkbox" id="optHard"> Modo difícil</label>
 </section>
 
 <main>
+  <div class="mode-tabs" id="modeTabs" role="group" aria-label="Modo de jogo">
+    <button class="tab" id="tabDaily" data-mode="daily">📅 Diário</button>
+    <button class="tab" id="tabFree" data-mode="free" aria-pressed="true">♾️ Infinito</button>
+  </div>
   <div class="hint-actions">
     <button class="btn ghost" id="btnGroupHint">💡 Dica de grupo</button>
+    <button class="btn ghost" id="btnNewGame">🔄 Novo jogo</button>
+    <button class="btn ghost" id="btnChallenge">🔗 Desafiar</button>
   </div>
   <div id="hint" aria-live="polite"></div>
   <div id="board" role="grid" aria-label="Tabuleiro"></div>
@@ -64,6 +74,10 @@
     <p>Acentos são preenchidos automaticamente: digite <b>avo</b> e, se a resposta for <b>avô</b>, vale igual. O cedilha entra como <b>C</b>.</p>
     <p>No <b>modo difícil</b>, todas as pistas reveladas precisam ser usadas no palpite seguinte.</p>
     <p>O botão <b>💡 Dica de grupo</b> (uso único por partida) revela a que grupo temático a palavra secreta pertence — animais, comida, emoções, ações... — junto com outra palavra do mesmo grupo como exemplo.</p>
+    <p>No modo <b>📅 Diário</b> todo mundo joga a mesma palavra de 5 letras no mesmo dia (uma partida por dia); no <b>♾️ Infinito</b> vale a configuração de letras, tentativas e tema escolhida em Ajustes.</p>
+    <p>Em <b>Ajustes → Tema</b>, dá pra restringir o sorteio a uma categoria (animais, comida, emoções...). Tamanhos sem palavra suficiente naquele tema ficam desativados.</p>
+    <p>O botão <b>🔗 Desafiar</b> copia, a qualquer momento da partida, um link com a palavra em jogo, para um amigo tentar a mesma — como nenhum dos dois vê a resposta antes de jogar, é um duelo justo. As configurações de dicas, modo difícil e aceitar qualquer palavra vão junto no link e ficam travadas com o valor de quem criou o desafio. Desativado no modo Diário (a palavra já é igual pra todo mundo) e durante um duelo em andamento.</p>
+    <p>O botão <b>🔄 Novo jogo</b> abandona a partida atual e sorteia outra a qualquer momento (não disponível no modo Diário).</p>
     <button class="btn ghost close" data-close>Fechar</button>
   </div>
 </div>
@@ -78,10 +92,12 @@
       <div class="stat"><b id="stRate">0%</b><span>Aproveitamento</span></div>
       <div class="stat"><b id="stStreak">0</b><span>Sequência</span></div>
     </div>
+    <p>Distribuição de tentativas (vitórias)</p>
+    <div class="dist" id="stDist"></div>
     <button class="btn ghost close" data-close>Fechar</button>
   </div>
 </div>
 
-<script src="script.js?v=10"></script>
+<script src="script.js?v=14"></script>
 </body>
 </html>

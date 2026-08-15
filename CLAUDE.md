@@ -84,6 +84,50 @@ jogo, painéis/tema, início). Pontos importantes:
   `style.css` mudar, incrementar esse `N` em `index.html`** — sem isso,
   navegadores (principalmente no celular) continuam servindo a versão antiga
   em cache.
+- **`state.mode`** (`'free'` infinito ou `'daily'` diário) e **`newGame(forcedKey)`**:
+  `newGame()` sorteia normalmente pelo tema/tamanho (`themePool()`), mas aceita
+  uma chave normalizada `forcedKey` pra pular o sorteio — usado pela palavra do
+  dia (`dailyAnswerKey()`, PRNG determinístico com seed = data local, sempre
+  5 letras/6 tentativas) e por um desafio recebido via link (`decodeChallenge()`
+  no hash `#w=`). Todo `onclick` que chama `newGame` direto precisa ser
+  `()=>newGame()`, nunca `newGame` cru — o handler de clique passaria o
+  `MouseEvent` como `forcedKey` e corromperia a resposta.
+- **Modo diário**: só uma partida por dia; o resultado (`rows`, `status`,
+  `answerRaw`) fica em `store['dito:daily']` chaveado pela data local
+  (`todayStr()`). Reabrir o jogo no mesmo dia cai em `showDailyDone()`, que
+  reconstrói o tabuleiro a partir do resultado salvo sem permitir novo palpite
+  (sem botão "Jogar de novo"). `setMode()` troca entre diário/infinito e guarda
+  o tamanho/tentativas/tema anteriores em `state.savedLen/savedTries/savedTheme`
+  pra restaurar ao voltar pro infinito.
+- **Tema (`GROUPS`) também filtra o sorteio**, não só a dica: `themePool(len,
+  theme)` filtra `DICT[len].keys` por `wordGroup`. `buildSegments()` desativa
+  os tamanhos sem palavra suficiente no tema escolhido; ao trocar de tema
+  (`selTheme`), se o tamanho atual ficar sem palavra, pula pro tamanho válido
+  mais próximo — nunca deixar o jogador escolher uma combinação vazia.
+- **Duelo por link**: `challenge()` codifica `len.tries.answer.hints.hard.free`
+  em base64 no hash da URL (`#w=...`); `decodeChallenge()` valida e devolve
+  `{len,tries,key,hints,hard,free}` (com padrões pra links antigos de 3 campos)
+  ou `null`. Só é honra entre amigos — o hash é trivial de decodificar, não é
+  pensado como anti-cheat. O botão "🔗 Desafiar" (`btnChallenge`) fica nas
+  hint-actions, disponível a qualquer momento da partida (não só no fim) —
+  de propósito: assim quem cria o link também não viu a resposta ainda, e o
+  duelo é justo pros dois lados. Desativado (`updatePlayActionBtns()`) no
+  modo diário e durante um duelo já em andamento, junto com "🔄 Novo jogo".
+- **`state.duel`**: ao entrar num desafio recebido por link, `hints`/`hard`/
+  `free` são travados no valor de quem criou o link (senão os dois lados não
+  jogam a mesma prova), guardando as preferências próprias do jogador em
+  `state.savedHints/savedHard/savedFree` pra restaurar depois. `buildSegments()`
+  desabilita/esmaece os checkboxes (`.check.locked`) e os campos de
+  tamanho/tentativas/tema enquanto `state.duel` for `true`. `endDuel()`
+  restaura as preferências salvas e destrava tudo; é chamado automaticamente
+  ao terminar a partida do duelo (`finish()`), ao trocar de modo (`setMode()`)
+  e ao abandonar a partida pelo botão "novo jogo" (`startFresh()`).
+- **Botão "🔄 Novo jogo"** (`startFresh()`): abandona a partida atual e sorteia
+  outra a qualquer momento, reaproveitando a invalidação de `setTimeout`s via
+  `state.gameId` (não precisa esperar o fim da rodada). Desabilitado no modo
+  diário (`updateNewGameBtn()`, chamado de dentro de `buildSegments()`) porque
+  só há uma tentativa por dia; se a partida abandonada era um duelo, chama
+  `endDuel()` antes de sortear a próxima.
 
 ## Convenções
 
@@ -114,3 +158,10 @@ jogo, painéis/tema, início). Pontos importantes:
   `if(e.repeat) return` no handler de `keydown`, o estado `'ending'` e o
   `state.gameId`. Qualquer trabalho adiado novo em `submit()` precisa checar o
   `gameId`.
+- No desktop, clicar em qualquer botão (`.btn`/`.icon-btn`, ex.: "🔄 Novo
+  jogo") deixava o foco nele; como Enter é a tecla nativa de ativação de
+  `<button>`, o próximo Enter — pensado pra enviar o palpite — reativava o
+  próprio botão em vez disso (ex.: clicar em "Novo jogo" e depois teclar Enter
+  reiniciava o jogo de novo, sem digitar nada). Corrigido com um listener
+  global de `click` em `document` que dá `blur()` em qualquer `.btn`/
+  `.icon-btn` logo após o clique.

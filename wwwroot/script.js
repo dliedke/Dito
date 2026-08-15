@@ -106,6 +106,7 @@ function rawForm(normWord){
    ========================================================= */
 const state = {
   len:5, tries:6, free:false, hard:false, hints:true, sound:true,
+  mode:'free', theme:null, // mode: 'free' (infinito) ou 'daily' (palavra do dia)
   answer:'', answerRaw:'',
   rows:[], cur:[], cursor:0, row:0,
   status:'playing',
@@ -113,9 +114,46 @@ const state = {
   ghosts:{}, hintLevel:0,
   locked:new Set(),
   groupHintUsed:false,
-  gameId:0
+  gameId:0,
+  duel:false // partida vinda de um link de desafio: dicas/modo difícil/aceitar-qualquer-palavra travados no valor de quem criou
 };
-const stats = { played:0, wins:0, streak:0 };
+const stats = { played:0, wins:0, streak:0, dist:Array(8).fill(0) };
+
+/* =========================================================
+   PALAVRA DO DIA — mesma palavra pra todo mundo, sorteada a partir
+   da data local (sem servidor: PRNG determinístico com seed = data)
+   ========================================================= */
+const DAILY_LEN = 5, DAILY_TRIES = 6;
+function todayStr(){
+  const d = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+/* PRNG determinístico (xmur3+mulberry32 simplificado) a partir de uma string */
+function seededRand(str){
+  let h = 1779033703 ^ str.length;
+  for(let i=0;i<str.length;i++){
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h<<13) | (h>>>19);
+  }
+  h = Math.imul(h ^ (h>>>16), 2246822507);
+  h = Math.imul(h ^ (h>>>13), 3266489909);
+  h ^= h>>>16;
+  return (h>>>0) / 4294967296;
+}
+function dailyAnswerKey(dateStr){
+  const pool = DICT[DAILY_LEN].keys;
+  return pool[Math.floor(seededRand(`dito-diario:${dateStr}`) * pool.length)];
+}
+
+/* =========================================================
+   MODO POR TEMA — filtra o sorteio pelas categorias de GROUPS
+   ========================================================= */
+function themePool(len, theme){
+  const keys = DICT[len].keys;
+  if(!theme) return keys;
+  return keys.filter(k => wordGroup[k] === theme);
+}
 
 /* armazenamento local (localStorage), com fallback silencioso caso indisponível */
 const store = {
@@ -175,11 +213,16 @@ const sfx = {
    CONFIGURAÇÃO
    ========================================================= */
 function buildSegments(){
+  // trava tamanho/tentativas/tema no diário (fixos em 5/6) e num duelo por link
+  // (a palavra do desafio já define esses valores, mudar quebraria o desafio)
+  const lockPlay = state.mode==='daily' || state.duel;
   const segLen = document.getElementById('segLen');
   segLen.innerHTML='';
   for(let n=3;n<=8;n++){
     const b=document.createElement('button');
     b.textContent=n; b.setAttribute('aria-pressed', n===state.len);
+    // tamanhos sem palavra suficiente no tema escolhido ficam desativados
+    b.disabled = lockPlay || themePool(n, state.theme).length===0;
     b.onclick=()=>{ state.len=n; if(state.tries<3) state.tries=n+1; buildSegments(); newGame(); saveSettings(); };
     segLen.appendChild(b);
   }
@@ -188,21 +231,80 @@ function buildSegments(){
   for(let t=3;t<=8;t++){
     const b=document.createElement('button');
     b.textContent=t; b.setAttribute('aria-pressed', t===state.tries);
+    b.disabled = lockPlay;
     b.onclick=()=>{ state.tries=t; buildSegments(); newGame(); saveSettings(); };
     segTries.appendChild(b);
   }
+  document.getElementById('segLen').closest('.field').classList.toggle('locked', lockPlay);
+  document.getElementById('segTries').closest('.field').classList.toggle('locked', lockPlay);
+  document.getElementById('fieldTheme').classList.toggle('locked', lockPlay);
+  document.getElementById('selTheme').disabled = lockPlay;
+  // num duelo por link, dicas/modo difícil/aceitar-qualquer-palavra ficam travados
+  // com o valor de quem criou o desafio — senão os dois lados não jogam a mesma prova
+  ['optHints','optHard','optFree'].forEach(id=>{
+    const el = document.getElementById(id);
+    el.disabled = state.duel;
+    el.closest('.check').classList.toggle('locked', state.duel);
+  });
+  updatePlayActionBtns();
+}
+/* botões "novo jogo" e "desafiar": desativados no modo diário (só uma
+   tentativa por dia, palavra já é igual pra todo mundo) e dentro de um
+   duelo em andamento (evita abandonar/encadear desafio sobre desafio) */
+function updatePlayActionBtns(){
+  const lockPlay = state.mode==='daily' || state.duel;
+  const bNew = document.getElementById('btnNewGame');
+  if(bNew) bNew.disabled = lockPlay;
+  const bChallenge = document.getElementById('btnChallenge');
+  if(bChallenge) bChallenge.disabled = lockPlay;
+}
+/* abandona a partida atual e começa outra a qualquer momento; se estava num
+   duelo por link, sai dele restaurando as configurações de antes (endDuel) */
+function startFresh(){
+  if(state.mode==='daily') return;
+  if(state.duel) endDuel();
+  newGame();
+}
+function buildThemeSelect(){
+  const sel = document.getElementById('selTheme');
+  sel.innerHTML = '<option value="">Todos os temas</option>';
+  Object.keys(GROUP_LABEL).sort((a,b)=>GROUP_LABEL[a].localeCompare(GROUP_LABEL[b],'pt-BR')).forEach(cat=>{
+    const opt=document.createElement('option');
+    opt.value=cat; opt.textContent=GROUP_LABEL[cat];
+    sel.appendChild(opt);
+  });
+  sel.value = state.theme || '';
+  sel.onchange = e=>{
+    state.theme = e.target.value || null;
+    // se o tamanho atual não tiver palavra nesse tema, pula pro tamanho válido mais próximo
+    if(!themePool(state.len, state.theme).length){
+      const validos = [3,4,5,6,7,8].filter(n=>themePool(n, state.theme).length);
+      if(validos.length) state.len = validos.reduce((a,b)=>Math.abs(b-state.len)<Math.abs(a-state.len)?b:a);
+    }
+    buildSegments();
+    newGame();
+    saveSettings();
+  };
 }
 function saveSettings(){
-  store.set('dito:settings',{len:state.len,tries:state.tries,free:state.free,hard:state.hard,hints:state.hints,sound:state.sound,theme:document.documentElement.dataset.theme});
+  store.set('dito:settings',{len:state.len,tries:state.tries,free:state.free,hard:state.hard,hints:state.hints,sound:state.sound,theme:document.documentElement.dataset.theme,wordTheme:state.theme,mode:state.mode});
 }
 
 /* =========================================================
    NOVO JOGO
    ========================================================= */
-function newGame(){
+function newGame(forcedKey){
   state.gameId++; // invalida setTimeouts pendentes de uma partida anterior
-  const pool = DICT[state.len].keys;
-  const key = pool[Math.floor(Math.random()*pool.length)];
+  let key;
+  if(forcedKey){
+    key = forcedKey; // palavra do dia ou palavra de um desafio recebido por link
+  } else {
+    const pool = themePool(state.len, state.theme);
+    // segurança: se o tema não tiver palavra nesse tamanho, cai pro dicionário todo
+    // em vez de travar (o seletor de tema já evita chegar aqui na prática)
+    const usable = pool.length ? pool : DICT[state.len].keys;
+    key = usable[Math.floor(Math.random()*usable.length)];
+  }
   state.answer = key;
   state.answerRaw = DICT[state.len].words.get(key);
   state.rows = [];
@@ -582,22 +684,46 @@ function finish(won){
   paintKeyboard();
   won ? sfx.win() : sfx.lose();
   stats.played++;
-  if(won){ stats.wins++; stats.streak++; } else { stats.streak=0; }
+  if(won){
+    stats.wins++; stats.streak++;
+    if(state.row>=1 && state.row<=stats.dist.length) stats.dist[state.row-1]++;
+  } else { stats.streak=0; }
   store.set('dito:stats', stats);
   renderStats();
 
+  if(state.mode==='daily'){
+    // só uma partida diária por dia: guarda o resultado pra bloquear replay
+    store.set('dito:daily', {
+      date:todayStr(), len:state.len, tries:state.tries,
+      rows:state.rows, status:state.status, answerRaw:state.answerRaw
+    });
+  }
+
+  // terminada a partida do desafio, libera as configurações de novo
+  if(state.duel) endDuel();
+
+  renderEndbar(
+    won ? ELOGIOS[Math.max(0, Math.min(state.row-1, ELOGIOS.length-1))] : 'A palavra era',
+    won ? `Acertou em ${state.row} de ${state.tries}` : 'Fica para a próxima',
+    { again: state.mode!=='daily' }
+  );
+}
+
+/* monta a barra de fim de jogo (vitória/derrota normal ou "já jogou hoje") */
+function renderEndbar(subTop, subBottom, opts={}){
   const box=document.createElement('div');
   box.className='endbar';
   box.innerHTML = `
-    <div class="sub">${won ? ELOGIOS[Math.max(0, Math.min(state.row-1, ELOGIOS.length-1))] : 'A palavra era'}</div>
+    <div class="sub">${subTop}</div>
     <div class="word">${state.answerRaw}</div>
-    <div class="sub">${won ? `Acertou em ${state.row} de ${state.tries}` : 'Fica para a próxima'}</div>
+    <div class="sub">${subBottom}</div>
     <div class="actions">
-      <button class="btn" id="again">Jogar de novo</button>
+      ${opts.again!==false ? '<button class="btn" id="again">Jogar de novo</button>' : ''}
       <button class="btn ghost" id="share">Copiar resultado</button>
     </div>`;
+  endEl.innerHTML='';
   endEl.appendChild(box);
-  document.getElementById('again').onclick=newGame;
+  if(opts.again!==false) document.getElementById('again').onclick=()=>{ if(state.duel) endDuel(); newGame(); };
   document.getElementById('share').onclick=share;
 }
 
@@ -612,6 +738,55 @@ function share(){
 }
 
 /* =========================================================
+   DUELO POR LINK — codifica a palavra da partida atual no hash da URL
+   para um amigo tentar a mesma, sem precisar de servidor. Disponível a
+   qualquer momento durante o jogo (botão "🔗 Desafiar" nas hint-actions),
+   não só no fim — assim os dois lados descobrem a palavra ao mesmo tempo,
+   nenhum vê a resposta antes de jogar.
+   ========================================================= */
+function challenge(){
+  // leva junto as configurações de quem criou o desafio (dicas/modo difícil/
+  // aceitar qualquer palavra) para os dois lados jogarem a mesma prova
+  const payload = `${state.len}.${state.tries}.${state.answer}.${state.hints?1:0}.${state.hard?1:0}.${state.free?1:0}`;
+  const link = location.origin + location.pathname + '#w=' + btoa(encodeURIComponent(payload));
+  navigator.clipboard?.writeText(link)
+    .then(()=>say('Link do desafio copiado'))
+    .catch(()=>say('Não foi possível copiar'));
+}
+function decodeChallenge(hash){
+  try{
+    const raw = decodeURIComponent(atob(hash));
+    const parts = raw.split('.');
+    const [lenStr, triesStr, key, hintsStr, hardStr, freeStr] = parts;
+    const len = Number(lenStr), tries = Number(triesStr);
+    if(!(len>=3 && len<=8 && tries>=3 && tries<=8)) return null;
+    if(!DICT[len] || !DICT[len].words.has(key)) return null;
+    // links antigos (3 campos) não tinham essas flags; assume os padrões do jogo
+    return {
+      len, tries, key,
+      hints: hintsStr===undefined ? true : hintsStr==='1',
+      hard: hardStr===undefined ? false : hardStr==='1',
+      free: freeStr===undefined ? false : freeStr==='1'
+    };
+  }catch(e){ return null; }
+}
+
+/* sai de um duelo por link, restaurando as configurações do jogador de antes
+   de aceitar o desafio (dicas/modo difícil/aceitar qualquer palavra) */
+function endDuel(){
+  if(!state.duel) return;
+  state.duel = false;
+  if(state.savedHints!==undefined) state.hints = state.savedHints;
+  if(state.savedHard!==undefined) state.hard = state.savedHard;
+  if(state.savedFree!==undefined) state.free = state.savedFree;
+  document.getElementById('optHints').checked = state.hints;
+  document.getElementById('optHard').checked = state.hard;
+  document.getElementById('optFree').checked = state.free;
+  buildSegments();
+  saveSettings();
+}
+
+/* =========================================================
    PAINÉIS E TEMA
    ========================================================= */
 function renderStats(){
@@ -619,12 +794,86 @@ function renderStats(){
   document.getElementById('stWins').textContent=stats.wins;
   document.getElementById('stRate').textContent=stats.played? Math.round(stats.wins/stats.played*100)+'%':'0%';
   document.getElementById('stStreak').textContent=stats.streak;
+  renderDist();
+}
+function renderDist(){
+  const box = document.getElementById('stDist');
+  if(!box) return;
+  const max = Math.max(1, ...stats.dist);
+  box.innerHTML = stats.dist.map((n,i)=>`
+    <div class="distrow">
+      <span class="distlabel">${i+1}</span>
+      <div class="distbar"><div class="distfill" style="width:${n ? Math.max(6, n/max*100) : 0}%"></div></div>
+      <span class="distcount">${n}</span>
+    </div>`).join('');
+}
+
+/* =========================================================
+   MODO DIÁRIO — sorteia (ou restaura) a palavra do dia
+   ========================================================= */
+function setMode(mode){
+  if(state.mode===mode) return;
+  if(state.duel) endDuel(); // trocar de modo abandona um duelo em andamento
+  state.mode = mode;
+  document.getElementById('tabDaily').setAttribute('aria-pressed', mode==='daily');
+  document.getElementById('tabFree').setAttribute('aria-pressed', mode==='free');
+  if(mode==='daily'){
+    state.savedLen = state.len; state.savedTries = state.tries; state.savedTheme = state.theme;
+    state.len = DAILY_LEN; state.tries = DAILY_TRIES; state.theme = null;
+    buildThemeSelect();
+    buildSegments();
+    enterDaily();
+  } else {
+    if(state.savedLen){ state.len = state.savedLen; state.tries = state.savedTries; state.theme = state.savedTheme; }
+    buildThemeSelect();
+    buildSegments();
+    newGame();
+  }
+  saveSettings();
+}
+async function enterDaily(){
+  const today = todayStr();
+  const saved = await store.get('dito:daily');
+  if(saved && saved.date === today) showDailyDone(saved);
+  else newGame(dailyAnswerKey(today));
+}
+/* mostra o resultado já jogado hoje, sem permitir nova tentativa */
+function showDailyDone(saved){
+  state.gameId++;
+  state.len = saved.len; state.tries = saved.tries;
+  state.rows = saved.rows; state.status = saved.status; state.answerRaw = saved.answerRaw;
+  state.row = saved.rows.length;
+  drawBoard();
+  saved.rows.forEach((r,ri)=>{
+    const row = board.children[ri];
+    if(!row) return;
+    [...row.children].forEach((tile,ci)=>{
+      tile.textContent = r.res[ci]==='correct' ? saved.answerRaw[ci] : r.guess[ci];
+      tile.classList.add(r.res[ci]);
+    });
+  });
+  kb.innerHTML='';
+  hintEl.innerHTML='';
+  setGroupHintBtn(false);
+  renderEndbar(
+    'Você já jogou o Dito de hoje',
+    saved.status==='win' ? `Acertou em ${saved.rows.length} de ${saved.tries}` : 'Não foi dessa vez',
+    { again:false }
+  );
 }
 function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open')); }
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeSheets);
 document.querySelectorAll('.sheet').forEach(s=>s.addEventListener('click',e=>{ if(e.target===s) closeSheets(); }));
 document.getElementById('btnHelp').onclick=()=>document.getElementById('sheetHelp').classList.add('open');
 document.getElementById('btnGroupHint').onclick=useGroupHint;
+document.getElementById('btnNewGame').onclick=startFresh;
+document.getElementById('btnChallenge').onclick=challenge;
+// no desktop, clicar num botão deixa o foco nele; sem isso, o próximo Enter
+// (pensado pra enviar o palpite) re-ativa o botão em vez de submeter a linha
+document.addEventListener('click', e=>{
+  const btn = e.target.closest('.btn, .icon-btn');
+  if(btn) btn.blur();
+});
 document.getElementById('btnStats').onclick=()=>{ renderStats(); document.getElementById('sheetStats').classList.add('open'); };
 document.getElementById('btnConfig').onclick=e=>{
   const c=document.getElementById('config');
@@ -659,6 +908,8 @@ document.getElementById('optHard').onchange=e=>{
   if(e.target.checked && state.row>0){ e.target.checked=false; return say('Ative o modo difícil no início da partida'); }
   state.hard=e.target.checked; saveSettings();
 };
+document.getElementById('tabDaily').onclick=()=>setMode('daily');
+document.getElementById('tabFree').onclick=()=>setMode('free');
 
 /* =========================================================
    INÍCIO
@@ -670,6 +921,7 @@ document.getElementById('optHard').onchange=e=>{
     state.free=!!s.free; state.hard=!!s.hard;
     state.hints = s.hints !== false;
     state.sound = s.sound !== false;
+    state.theme = s.wordTheme || null;
     if(s.theme) document.documentElement.dataset.theme=s.theme;
     document.getElementById('optFree').checked=state.free;
     document.getElementById('optHard').checked=state.hard;
@@ -683,7 +935,45 @@ document.getElementById('optHard').onchange=e=>{
   updateThemeColor();
   const st = await store.get('dito:stats');
   if(st) Object.assign(stats, st);
+  if(!Array.isArray(stats.dist) || stats.dist.length!==8) stats.dist = Array(8).fill(0);
+  buildThemeSelect();
   buildSegments();
   renderStats();
-  newGame();
+
+  // desafio recebido por link (#w=...) tem prioridade sobre modo diário/infinito salvo
+  const hashKey = location.hash.startsWith('#w=') ? location.hash.slice(3) : null;
+  const incoming = hashKey ? decodeChallenge(hashKey) : null;
+  if(incoming){
+    history.replaceState(null, '', location.pathname + location.search); // não repete ao recarregar
+    state.mode = 'free';
+    state.len = incoming.len; state.tries = incoming.tries; state.theme = null;
+    // trava dicas/modo difícil/aceitar-qualquer-palavra no valor de quem criou o desafio,
+    // guardando as configurações do jogador pra restaurar quando o duelo terminar (endDuel)
+    state.duel = true;
+    state.savedHints = state.hints; state.savedHard = state.hard; state.savedFree = state.free;
+    state.hints = incoming.hints; state.hard = incoming.hard; state.free = incoming.free;
+    document.getElementById('optHints').checked = state.hints;
+    document.getElementById('optHard').checked = state.hard;
+    document.getElementById('optFree').checked = state.free;
+    document.getElementById('tabDaily').setAttribute('aria-pressed', false);
+    document.getElementById('tabFree').setAttribute('aria-pressed', true);
+    buildThemeSelect();
+    buildSegments();
+    newGame(incoming.key);
+    say('Desafio recebido! Adivinhe a palavra do seu amigo.');
+    return;
+  }
+
+  if(s?.mode === 'daily'){
+    state.mode = 'daily';
+    state.savedLen = state.len; state.savedTries = state.tries; state.savedTheme = state.theme;
+    state.len = DAILY_LEN; state.tries = DAILY_TRIES; state.theme = null;
+    document.getElementById('tabDaily').setAttribute('aria-pressed', true);
+    document.getElementById('tabFree').setAttribute('aria-pressed', false);
+    buildSegments();
+    enterDaily();
+  } else {
+    document.getElementById('tabFree').setAttribute('aria-pressed', true);
+    newGame();
+  }
 })();

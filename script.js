@@ -265,7 +265,9 @@ function press(k){
   }
   if(k==='↵') return submit();
   if(k==='⌫'){
-    if(state.cur[state.cursor]){
+    // nunca apaga uma casinha travada (verde-limão, posição confirmada),
+    // mesmo que o cursor tenha parado sobre ela
+    if(state.cur[state.cursor] && !state.locked.has(state.cursor)){
       state.cur[state.cursor] = '';
       sfx.del();
     } else if(state.cursor > 0){

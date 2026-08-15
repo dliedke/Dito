@@ -34,7 +34,7 @@ const state = {
   status:'playing',
   letterState:{},
   ghosts:{}, hintLevel:0,
-  carried:new Set()
+  locked:new Set()
 };
 const stats = { played:0, wins:0, streak:0 };
 
@@ -133,7 +133,7 @@ function newGame(){
   state.letterState = {};
   state.ghosts = {};
   state.hintLevel = 0;
-  state.carried = new Set();
+  state.locked = new Set();
   endEl.innerHTML = '';
   hintEl.innerHTML = '';
   drawBoard();
@@ -165,7 +165,9 @@ board.addEventListener('click', e=>{
   if(!tile || state.status!=='playing') return;
   const row = tile.parentElement;
   if(Number(row.dataset.row) !== state.row) return;
-  state.cursor = Number(tile.dataset.col);
+  const col = Number(tile.dataset.col);
+  if(state.locked.has(col)) return; // já confirmada (verde), não precisa editar
+  state.cursor = col;
   renderCurrent();
 });
 
@@ -265,26 +267,26 @@ function press(k){
   if(k==='⌫'){
     if(state.cur[state.cursor]){
       state.cur[state.cursor] = '';
-      state.carried.delete(state.cursor);
       sfx.del();
     } else if(state.cursor > 0){
-      // pula pra trás as casinhas já preenchidas automaticamente (amarelas)
+      // pula pra trás as casinhas já travadas (verde-limão, posição confirmada)
       let i = state.cursor - 1;
-      while(i > 0 && state.carried.has(i)) i--;
-      state.cursor = i;
-      state.cur[state.cursor] = '';
-      state.carried.delete(state.cursor);
-      sfx.del();
+      while(i > 0 && state.locked.has(i)) i--;
+      if(!state.locked.has(i)){
+        state.cursor = i;
+        state.cur[i] = '';
+        sfx.del();
+      }
     }
     return renderCurrent();
   }
   if(/^[a-z]$/.test(k)){
+    if(state.locked.has(state.cursor)) return;
     state.cur[state.cursor] = k;
-    state.carried.delete(state.cursor);
     sfx.key();
-    // pula pra frente as casinhas já preenchidas automaticamente (amarelas)
+    // pula pra frente as casinhas já travadas (verde-limão, posição confirmada)
     let i = state.cursor + 1;
-    while(i < state.len-1 && state.carried.has(i)) i++;
+    while(i < state.len-1 && state.locked.has(i)) i++;
     if(i < state.len) state.cursor = i;
     renderCurrent();
   }
@@ -309,7 +311,7 @@ function renderCurrent(){
     tile.textContent = ch || (ghost ? ghost : '');
     tile.classList.toggle('filled', !!ch);
     tile.classList.toggle('ghost', !ch && !!ghost);
-    tile.classList.toggle('carried', !!ch && state.carried.has(i));
+    tile.classList.toggle('locked', state.locked.has(i));
     tile.classList.toggle('active', i===state.cursor);
   });
 }
@@ -382,15 +384,15 @@ function submit(){
   const delay = state.len*180 + 320;
   setTimeout(paintKeyboard, delay);
 
-  // leva pra próxima linha as letras amarelas (presentes, posição errada) já
-  // digitadas, pra o jogador não precisar redigitar o que já descobriu
+  // leva pra próxima linha as letras verde-limão (posição confirmada) já
+  // descobertas em qualquer tentativa anterior, travadas nas posições certas
   const nextCur = Array(state.len).fill('');
-  const nextCarried = new Set();
-  for(let i=0;i<state.len;i++){
-    if(res[i]==='present'){ nextCur[i] = g[i]; nextCarried.add(i); }
-  }
+  const nextLocked = new Set();
+  state.rows.forEach(r=>{
+    r.res.forEach((v,i)=>{ if(v==='correct'){ nextCur[i] = r.guess[i]; nextLocked.add(i); } });
+  });
   state.cur = nextCur;
-  state.carried = nextCarried;
+  state.locked = nextLocked;
   const firstEmpty = state.cur.findIndex(c=>!c);
   state.cursor = firstEmpty === -1 ? 0 : firstEmpty;
   state.row++;

@@ -77,6 +77,9 @@ jogo, painéis/tema, início). Pontos importantes:
   acerto/erro final e a animação de revelação terminar. `press()` ignora tudo
   nesse intervalo; só depois o status vira `win`/`lose` e o Enter volta a
   reiniciar o jogo.
+- **Qualquer palpite vale**: `submit()` não checa se o palpite existe no
+  dicionário — qualquer combinação de letras com o tamanho certo é aceita (a
+  antiga opção "Aceitar qualquer palavra" / `state.free` foi removida).
 - **Modo difícil** (`state.hard`): reaproveita `hardModeError()` para exigir
   que pistas já reveladas (verde/azul) apareçam nos palpites seguintes.
 - **Sem framework de build**: `index.html` carrega `style.css` e `script.js`
@@ -104,19 +107,20 @@ jogo, painéis/tema, início). Pontos importantes:
   os tamanhos sem palavra suficiente no tema escolhido; ao trocar de tema
   (`selTheme`), se o tamanho atual ficar sem palavra, pula pro tamanho válido
   mais próximo — nunca deixar o jogador escolher uma combinação vazia.
-- **Duelo por link**: `challenge()` codifica `len.tries.answer.hints.hard.free`
+- **Duelo por link**: `challenge()` codifica `len.tries.answer.hints.hard`
   em base64 no hash da URL (`#w=...`); `decodeChallenge()` valida e devolve
-  `{len,tries,key,hints,hard,free}` (com padrões pra links antigos de 3 campos)
+  `{len,tries,key,hints,hard}` (com padrões pra links antigos de 3 campos;
+  o 6º campo de links antigos, "aceitar qualquer palavra", é ignorado)
   ou `null`. Só é honra entre amigos — o hash é trivial de decodificar, não é
   pensado como anti-cheat. O botão "🔗 Desafiar" (`btnChallenge`) fica nas
   hint-actions, disponível a qualquer momento da partida (não só no fim) —
   de propósito: assim quem cria o link também não viu a resposta ainda, e o
   duelo é justo pros dois lados. Desativado (`updatePlayActionBtns()`) no
   modo diário e durante um duelo já em andamento, junto com "🔄 Novo jogo".
-- **`state.duel`**: ao entrar num desafio recebido por link, `hints`/`hard`/
-  `free` são travados no valor de quem criou o link (senão os dois lados não
+- **`state.duel`**: ao entrar num desafio recebido por link, `hints`/`hard`
+  são travados no valor de quem criou o link (senão os dois lados não
   jogam a mesma prova), guardando as preferências próprias do jogador em
-  `state.savedHints/savedHard/savedFree` pra restaurar depois. `buildSegments()`
+  `state.savedHints/savedHard` pra restaurar depois. `buildSegments()`
   desabilita/esmaece os checkboxes (`.check.locked`) e os campos de
   tamanho/tentativas/tema enquanto `state.duel` for `true`. `endDuel()`
   restaura as preferências salvas e destrava tudo; é chamado automaticamente

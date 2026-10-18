@@ -34,8 +34,10 @@ html[data-theme="dark"]{
   --absent-ink:#8b929d;
 }
 *{box-sizing:border-box}
-html,body{height:100%; overscroll-behavior-y:contain}
-@supports (height: 100dvh){ html,body{height:100dvh} }
+/* min-height (não height): se o conteúdo passar da tela, o body cresce junto e o
+   teclado fixo no rodapé (position:sticky) continua funcionando */
+html,body{min-height:100%; overscroll-behavior-y:contain}
+@supports (height: 100dvh){ html,body{min-height:100dvh} }
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{
   margin:0;
@@ -238,8 +240,11 @@ main{
 .hint-actions .btn{padding:8px 14px;font-size:13px}
 
 /* ---------- teclado ---------- */
+/* sempre visível no rodapé, mesmo quando o tabuleiro/ajustes passam da altura da tela */
 #keyboard{
   width:100%;max-width:520px;
+  position:sticky;bottom:0;z-index:15;
+  background:var(--bg);
   display:flex;flex-direction:column;gap:6px;
   padding:8px max(6px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
 }

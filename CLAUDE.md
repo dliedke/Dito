@@ -133,6 +133,12 @@ jogo, painéis/tema, início). Pontos importantes:
   só há uma tentativa por dia; se a partida abandonada era um duelo, chama
   `endDuel()` antes de sortear a próxima.
 
+- **Layout no celular**: `#keyboard` é `position:sticky; bottom:0` (por isso
+  `html,body` usam `min-height`, não `height`), então fica sempre visível
+  mesmo quando o conteúdo passa da altura da tela. Como ele pode cobrir a
+  linha atual ou a tela de fim, `submit()` e `renderEndbar()` chamam
+  `scrollAboveKeyboard()`. Em telas ≤600px o painel de Ajustes começa fechado.
+
 ## Convenções
 
 - Comentários e mensagens de commit em **português**.

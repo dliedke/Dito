@@ -656,6 +656,16 @@ function submit(){
     setTimeout(()=>{ if(state.gameId===gameId) maybeHint(); }, delay + 150);
   }
   markActiveRow();
+  scrollAboveKeyboard(board.children[state.row]);
+}
+
+/* o teclado fica fixo no rodapé (sticky); em tela baixa ele pode cobrir a
+   linha atual ou o fim de jogo — rola a página só o necessário pra mostrar */
+function scrollAboveKeyboard(el){
+  if(!el) return;
+  const limit = kb.getBoundingClientRect().top - 8;
+  const over = el.getBoundingClientRect().bottom - limit;
+  if(over > 0) window.scrollBy({top:over, behavior:'smooth'});
 }
 
 function reject(msg){
@@ -724,6 +734,7 @@ function renderEndbar(subTop, subBottom, opts={}){
   endEl.appendChild(box);
   if(opts.again!==false) document.getElementById('again').onclick=()=>{ if(state.duel) endDuel(); newGame(); };
   document.getElementById('share').onclick=share;
+  scrollAboveKeyboard(box);
 }
 
 function share(){
@@ -872,11 +883,16 @@ document.addEventListener('click', e=>{
   if(btn) btn.blur();
 });
 document.getElementById('btnStats').onclick=()=>{ renderStats(); document.getElementById('sheetStats').classList.add('open'); };
-document.getElementById('btnConfig').onclick=e=>{
-  const c=document.getElementById('config');
-  c.classList.toggle('hidden');
-  e.currentTarget.setAttribute('aria-expanded', !c.classList.contains('hidden'));
+function setConfigOpen(open){
+  document.getElementById('config').classList.toggle('hidden', !open);
+  document.getElementById('btnConfig').setAttribute('aria-expanded', open);
+}
+document.getElementById('btnConfig').onclick=()=>{
+  setConfigOpen(document.getElementById('config').classList.contains('hidden'));
 };
+// no celular o painel de ajustes começa fechado — aberto, ele ocupa quase meia
+// tela e empurra tabuleiro/teclado pra baixo
+if(window.matchMedia('(max-width:600px)').matches) setConfigOpen(false);
 function updateThemeColor(){
   const meta = document.getElementById('metaTheme');
   if(meta) meta.setAttribute('content', document.documentElement.dataset.theme==='dark' ? '#101216' : '#f2f3f5');

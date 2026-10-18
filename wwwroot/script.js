@@ -105,7 +105,7 @@ function rawForm(normWord){
    ESTADO
    ========================================================= */
 const state = {
-  len:5, tries:6, free:false, hard:false, hints:true, sound:true,
+  len:5, tries:6, hard:false, hints:true, sound:true,
   mode:'free', theme:null, // mode: 'free' (infinito) ou 'daily' (palavra do dia)
   answer:'', answerRaw:'',
   rows:[], cur:[], cursor:0, row:0,
@@ -239,9 +239,9 @@ function buildSegments(){
   document.getElementById('segTries').closest('.field').classList.toggle('locked', lockPlay);
   document.getElementById('fieldTheme').classList.toggle('locked', lockPlay);
   document.getElementById('selTheme').disabled = lockPlay;
-  // num duelo por link, dicas/modo difícil/aceitar-qualquer-palavra ficam travados
+  // num duelo por link, dicas/modo difícil ficam travados
   // com o valor de quem criou o desafio — senão os dois lados não jogam a mesma prova
-  ['optHints','optHard','optFree'].forEach(id=>{
+  ['optHints','optHard'].forEach(id=>{
     const el = document.getElementById(id);
     el.disabled = state.duel;
     el.closest('.check').classList.toggle('locked', state.duel);
@@ -287,7 +287,7 @@ function buildThemeSelect(){
   };
 }
 function saveSettings(){
-  store.set('dito:settings',{len:state.len,tries:state.tries,free:state.free,hard:state.hard,hints:state.hints,sound:state.sound,theme:document.documentElement.dataset.theme,wordTheme:state.theme,mode:state.mode});
+  store.set('dito:settings',{len:state.len,tries:state.tries,hard:state.hard,hints:state.hints,sound:state.sound,theme:document.documentElement.dataset.theme,wordTheme:state.theme,mode:state.mode});
 }
 
 /* =========================================================
@@ -582,8 +582,7 @@ function hardModeError(guess){
 function submit(){
   if(state.cur.includes('')) return reject('Faltam letras');
   const g = state.cur.join('');
-  const dict = DICT[state.len];
-  if(!state.free && !dict.words.has(g)) return reject('Palavra não está na lista');
+  // qualquer combinação de letras é aceita como palpite, sem checar o dicionário
   if(state.hard){
     const err = hardModeError(g);
     if(err) return reject(err);
@@ -745,9 +744,9 @@ function share(){
    nenhum vê a resposta antes de jogar.
    ========================================================= */
 function challenge(){
-  // leva junto as configurações de quem criou o desafio (dicas/modo difícil/
-  // aceitar qualquer palavra) para os dois lados jogarem a mesma prova
-  const payload = `${state.len}.${state.tries}.${state.answer}.${state.hints?1:0}.${state.hard?1:0}.${state.free?1:0}`;
+  // leva junto as configurações de quem criou o desafio (dicas/modo difícil)
+  // para os dois lados jogarem a mesma prova
+  const payload = `${state.len}.${state.tries}.${state.answer}.${state.hints?1:0}.${state.hard?1:0}`;
   const link = location.origin + location.pathname + '#w=' + btoa(encodeURIComponent(payload));
   navigator.clipboard?.writeText(link)
     .then(()=>say('Link do desafio copiado'))
@@ -757,7 +756,8 @@ function decodeChallenge(hash){
   try{
     const raw = decodeURIComponent(atob(hash));
     const parts = raw.split('.');
-    const [lenStr, triesStr, key, hintsStr, hardStr, freeStr] = parts;
+    // links antigos tinham um 6º campo (aceitar qualquer palavra), hoje ignorado
+    const [lenStr, triesStr, key, hintsStr, hardStr] = parts;
     const len = Number(lenStr), tries = Number(triesStr);
     if(!(len>=3 && len<=8 && tries>=3 && tries<=8)) return null;
     if(!DICT[len] || !DICT[len].words.has(key)) return null;
@@ -765,23 +765,20 @@ function decodeChallenge(hash){
     return {
       len, tries, key,
       hints: hintsStr===undefined ? true : hintsStr==='1',
-      hard: hardStr===undefined ? false : hardStr==='1',
-      free: freeStr===undefined ? false : freeStr==='1'
+      hard: hardStr===undefined ? false : hardStr==='1'
     };
   }catch(e){ return null; }
 }
 
 /* sai de um duelo por link, restaurando as configurações do jogador de antes
-   de aceitar o desafio (dicas/modo difícil/aceitar qualquer palavra) */
+   de aceitar o desafio (dicas/modo difícil) */
 function endDuel(){
   if(!state.duel) return;
   state.duel = false;
   if(state.savedHints!==undefined) state.hints = state.savedHints;
   if(state.savedHard!==undefined) state.hard = state.savedHard;
-  if(state.savedFree!==undefined) state.free = state.savedFree;
   document.getElementById('optHints').checked = state.hints;
   document.getElementById('optHard').checked = state.hard;
-  document.getElementById('optFree').checked = state.free;
   buildSegments();
   saveSettings();
 }
@@ -897,7 +894,6 @@ document.getElementById('btnSound').onclick=e=>{
   if(state.sound) getCtx(); // desbloqueia o áudio no gesto do usuário
   saveSettings();
 };
-document.getElementById('optFree').onchange=e=>{ state.free=e.target.checked; saveSettings(); };
 document.getElementById('optHints').onchange=e=>{
   state.hints=e.target.checked;
   if(!state.hints){ hintEl.innerHTML=''; state.hintKey=null; state.ghosts={}; renderCurrent(); paintKeyboard(); }
@@ -918,12 +914,11 @@ document.getElementById('tabFree').onclick=()=>setMode('free');
   const s = await store.get('dito:settings');
   if(s){
     state.len=s.len??5; state.tries=s.tries??6;
-    state.free=!!s.free; state.hard=!!s.hard;
+    state.hard=!!s.hard;
     state.hints = s.hints !== false;
     state.sound = s.sound !== false;
     state.theme = s.wordTheme || null;
     if(s.theme) document.documentElement.dataset.theme=s.theme;
-    document.getElementById('optFree').checked=state.free;
     document.getElementById('optHard').checked=state.hard;
     document.getElementById('optHints').checked=state.hints;
   } else if(window.matchMedia('(prefers-color-scheme: dark)').matches){
@@ -947,14 +942,13 @@ document.getElementById('tabFree').onclick=()=>setMode('free');
     history.replaceState(null, '', location.pathname + location.search); // não repete ao recarregar
     state.mode = 'free';
     state.len = incoming.len; state.tries = incoming.tries; state.theme = null;
-    // trava dicas/modo difícil/aceitar-qualquer-palavra no valor de quem criou o desafio,
+    // trava dicas/modo difícil no valor de quem criou o desafio,
     // guardando as configurações do jogador pra restaurar quando o duelo terminar (endDuel)
     state.duel = true;
-    state.savedHints = state.hints; state.savedHard = state.hard; state.savedFree = state.free;
-    state.hints = incoming.hints; state.hard = incoming.hard; state.free = incoming.free;
+    state.savedHints = state.hints; state.savedHard = state.hard;
+    state.hints = incoming.hints; state.hard = incoming.hard;
     document.getElementById('optHints').checked = state.hints;
     document.getElementById('optHard').checked = state.hard;
-    document.getElementById('optFree').checked = state.free;
     document.getElementById('tabDaily').setAttribute('aria-pressed', false);
     document.getElementById('tabFree').setAttribute('aria-pressed', true);
     buildThemeSelect();

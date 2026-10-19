@@ -1253,16 +1253,35 @@ document.getElementById('btnConfig').onclick=()=>{
 // no celular o painel de ajustes começa fechado — aberto, ele ocupa quase meia
 // tela e empurra tabuleiro/teclado pra baixo
 if(window.matchMedia('(max-width:600px)').matches) setConfigOpen(false);
+// visuais: claro → escuro → doido (3D neon) → claro...
+const THEMES = ['light','dark','doido'];
+const THEME_COLOR = {light:'#f2f3f5', dark:'#101216', doido:'#1b0638'};
 function updateThemeColor(){
+  const t = document.documentElement.dataset.theme || 'light';
   const meta = document.getElementById('metaTheme');
-  if(meta) meta.setAttribute('content', document.documentElement.dataset.theme==='dark' ? '#101216' : '#f2f3f5');
+  if(meta) meta.setAttribute('content', THEME_COLOR[t] || THEME_COLOR.light);
+  // o botão mostra qual é o próximo visual
+  const next = THEMES[(THEMES.indexOf(t)+1) % THEMES.length];
+  const btn = document.getElementById('btnTheme');
+  btn.textContent = next==='doido' ? '🌀' : '◐';
+  btn.title = next==='doido' ? 'Visual doido 3D' : next==='dark' ? 'Visual escuro' : 'Visual claro';
+  if(t!=='doido'){ board.style.removeProperty('--tx'); board.style.removeProperty('--ty'); }
 }
 document.getElementById('btnTheme').onclick=()=>{
   const d=document.documentElement;
-  d.dataset.theme = d.dataset.theme==='dark' ? 'light' : 'dark';
+  const i = THEMES.indexOf(d.dataset.theme || 'light');
+  d.dataset.theme = THEMES[(i+1) % THEMES.length];
   updateThemeColor();
   saveSettings();
 };
+// visual doido: o tabuleiro 3D inclina seguindo o mouse (no celular ele só balança sozinho)
+document.addEventListener('pointermove', e=>{
+  if(e.pointerType!=='mouse' || document.documentElement.dataset.theme!=='doido') return;
+  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const x = e.clientX/window.innerWidth - .5, y = e.clientY/window.innerHeight - .5;
+  board.style.setProperty('--tx', (x*16).toFixed(1)+'deg');
+  board.style.setProperty('--ty', (-y*10).toFixed(1)+'deg');
+});
 document.getElementById('btnSound').onclick=e=>{
   state.sound = !state.sound;
   e.currentTarget.setAttribute('aria-pressed', state.sound);

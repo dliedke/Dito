@@ -144,6 +144,13 @@ jogo, painéis/tema, início). Pontos importantes:
   "🔄 Novo jogo" vira "⏭️ Pular" (custa `BLITZ_SKIP` segundos). Ao sair do modo,
   `setMode()` para o `setInterval` e zera `state.blitz`. O modo não é restaurado
   ao recarregar (`saveSettings()` grava `'free'`).
+- **Pontos e recordes do relâmpago**: cada acerto vale `blitzPoints()` (100 +
+  20 por tentativa que sobrou + 25 por acerto seguido; `state.blitz.combo` zera
+  ao errar ou pular). `endBlitz()` grava a rodada (se fez ponto) em
+  `blitzRecords` — top `BLITZ_KEEP` por pontos, salvo em `store['dito:blitz']`
+  como `{records:[{id,pts,words,date}]}` e carregado no `init`.
+  `blitzRecordsHTML()` monta a tabela usada no fim da rodada (destacando a
+  rodada atual) e no Placar. `stats.blitzBest` é um campo antigo, não usado.
 - **`setMode()`** guarda tamanho/tentativas/tema em `state.savedLen/...` sempre
   que **sai** do infinito e restaura ao voltar; `saveSettings()` grava esses
   valores salvos (não os 5/6 fixos) quando o modo atual não é o infinito.
@@ -155,7 +162,7 @@ jogo, painéis/tema, início). Pontos importantes:
   `store['dito:ach']`; `checkAchievements()` roda em `finish()` **antes** de
   `endDuel()` (precisa ver dicas/modo difícil/duelo da partida). As do
   relâmpago são liberadas em `endBlitz()`. Listadas no Placar (`renderAch()`).
-  `stats.groups` (grupos já acertados) e `stats.blitzBest` vivem em `dito:stats`.
+  `stats.groups` (grupos já acertados) vive em `dito:stats`.
 - **Contagem regressiva** do diário (`startCountdown()`): um `setInterval`
   global (`countdownTimer`), parado em `newGame()` e a cada `renderEndbar()`;
   se o dia virar com a tela aberta, chama `enterDaily()`.

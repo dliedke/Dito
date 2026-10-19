@@ -120,7 +120,7 @@ const state = {
   trail:null  // palavras ainda possíveis depois de cada palpite (análise do fim de jogo)
 };
 // groups: grupos temáticos já acertados (conquista "Explorador");
-// blitzBest: recorde de palavras numa rodada do relâmpago
+// blitzBest: campo antigo (recorde só em palavras), substituído por blitzRecords
 const stats = { played:0, wins:0, streak:0, dist:Array(8).fill(0), groups:[], blitzBest:0 };
 const ach = {}; // conquistas desbloqueadas: id → data
 
@@ -766,6 +766,7 @@ function renderEndbar(subTop, subBottom, opts={}){
     <div class="sub">${subBottom}</div>
     ${opts.trail ? trailHTML(opts.trail) : ''}
     ${opts.countdown ? '<div class="sub countdown"></div>' : ''}
+    ${opts.extra || ''}
     <div class="actions">
       ${opts.again!==false ? '<button class="btn" id="again">Jogar de novo</button>' : ''}
       <button class="btn ghost" id="share">Copiar resultado</button>
@@ -785,8 +786,8 @@ function renderEndbar(subTop, subBottom, opts={}){
 function share(){
   let text;
   if(state.mode==='blitz' && state.blitz){
-    const n = state.blitz.score;
-    text = `Dito ⚡ Relâmpago — ${n} ${n===1?'palavra':'palavras'} contra o relógio`;
+    const b = state.blitz;
+    text = `Dito ⚡ Relâmpago — ${b.points} pts (${b.score} ${b.score===1?'palavra':'palavras'}) contra o relógio`;
   } else {
     const emoji={correct:'🟩',present:'🟦',absent:'⬜'};
     const placar = `${state.status==='win'?state.row:'X'}/${state.tries}`;
@@ -857,10 +858,20 @@ function startCountdown(el){
    palavra custa tempo. O relógio só começa na primeira letra digitada.
    ========================================================= */
 const BLITZ_START = 150, BLITZ_BONUS = 30, BLITZ_SKIP = 10; // segundos
+const BLITZ_KEEP = 10; // quantos recordes pessoais ficam salvos
 const blitzBar = document.getElementById('blitzBar');
+// recordes pessoais do relâmpago (localStorage 'dito:blitz'), do maior pro menor:
+// [{id, pts, words, date}]
+let blitzRecords = [];
+function blitzBestPts(){ return blitzRecords.length ? blitzRecords[0].pts : 0; }
+/* pontos de uma palavra acertada: 100 + 20 por tentativa que sobrou,
+   + 25 por acerto seguido (combo zera ao errar ou pular) */
+function blitzPoints(triesUsed, combo){
+  return 100 + 20*(state.tries - triesUsed) + 25*(combo-1);
+}
 function startBlitz(){
   stopBlitzTimer();
-  state.blitz = { score:0, deadline:null, timer:null, lastTick:null, over:false };
+  state.blitz = { score:0, points:0, combo:0, deadline:null, timer:null, lastTick:null, over:false };
   newGame();
   renderBlitzBar();
 }
@@ -896,9 +907,13 @@ function renderBlitzBar(){
   const s = Math.ceil(left);
   blitzBar.hidden = false;
   blitzBar.classList.toggle('urgent', !!b.deadline && !b.over && left<=15);
+  const best = blitzBestPts();
+  const passou = best>0 && b.points>best; // já superou o recorde nesta rodada
   blitzBar.innerHTML = `
     <span class="clock">⏱️ ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}</span>
-    <span class="score">⚡ ${b.score} ${b.score===1?'palavra':'palavras'}</span>
+    <span class="score">🏅 ${b.points} pts</span>
+    <span class="words">⚡ ${b.score}${b.combo>=2 ? ` <em>🔥×${b.combo}</em>` : ''}</span>
+    <span class="best${passou?' beaten':''}">${passou ? '🎉 Novo recorde!' : best ? `🏆 Recorde ${best}` : '🏆 Sem recorde ainda'}</span>
     ${b.deadline || b.over ? '' : '<span class="wait">digite para começar</span>'}
     <div class="fill" style="width:${Math.min(100, left/BLITZ_START*100)}%"></div>`;
 }
@@ -908,9 +923,13 @@ function blitzRoundEnd(won){
   if(!b || b.over) return;
   if(won){
     b.score++;
+    b.combo++;
+    const pts = blitzPoints(state.row, b.combo);
+    b.points += pts;
     if(b.deadline) b.deadline += BLITZ_BONUS*1000;
-    say(`+${BLITZ_BONUS}s`);
+    say(`+${pts} pts · +${BLITZ_BONUS}s${b.combo>=2 ? ` · combo ×${b.combo}` : ''}`);
   } else {
+    b.combo = 0;
     say(`Era ${state.answerRaw.toUpperCase()}`);
   }
   renderBlitzBar();
@@ -924,6 +943,7 @@ function skipBlitzWord(){
   if(!b || b.over || state.status!=='playing') return;
   blitzStartClock();
   b.deadline -= BLITZ_SKIP*1000;
+  b.combo = 0;
   say(`Era ${state.answerRaw.toUpperCase()} (−${BLITZ_SKIP}s)`);
   newGame();
   renderBlitzBar();
@@ -941,18 +961,44 @@ function endBlitz(){
   markActiveRow();
   board.querySelectorAll('.tile.active').forEach(t=>t.classList.remove('active'));
   sfx.lose();
-  const recorde = b.score > stats.blitzBest;
-  if(recorde){ stats.blitzBest = b.score; store.set('dito:stats', stats); }
+  // guarda a rodada na lista de recordes pessoais (só se fez algum ponto)
+  const recorde = b.points>0 && b.points>blitzBestPts();
+  let entry = null;
+  if(b.points>0){
+    entry = { id:Date.now(), pts:b.points, words:b.score, date:todayStr() };
+    blitzRecords.push(entry);
+    blitzRecords.sort((x,y)=>y.pts-x.pts || x.id-y.id);
+    blitzRecords = blitzRecords.slice(0, BLITZ_KEEP);
+    store.set('dito:blitz', { records: blitzRecords });
+  }
+  const pos = entry ? blitzRecords.indexOf(entry) : -1; // -1: ficou fora da lista
   if(b.score>=5) unlock('raio');
   if(b.score>=10) unlock('tempestade');
   renderStats();
   renderBlitzBar();
+  const palavras = `${b.score} ${b.score===1?'palavra':'palavras'}`;
   renderEndbar(
     `⏱️ Tempo esgotado! A última era <b>${state.answerRaw.toUpperCase()}</b>`,
-    recorde ? '🎉 Novo recorde!' : `Recorde: ${stats.blitzBest}`,
-    { word: `${b.score} ${b.score===1?'palavra':'palavras'}` }
+    recorde ? `🎉 Novo recorde pessoal! · ${palavras}`
+      : pos>=0 ? `${palavras} · ${pos+1}º lugar nos seus recordes`
+      : `${palavras} · recorde: ${blitzBestPts()} pts`,
+    { word: `${b.points} pts`, extra: blitzRecordsHTML(entry ? entry.id : null, 5) }
   );
   if(recorde) confetti();
+}
+/* tabela dos recordes pessoais; destaca a rodada que acabou de terminar */
+function blitzRecordsHTML(highlightId, max){
+  if(!blitzRecords.length) return '';
+  const fmt = d => d.split('-').reverse().slice(0,2).join('/'); // 2026-10-19 → 19/10
+  const medalha = ['🥇','🥈','🥉'];
+  const linhas = blitzRecords.slice(0, max).map((r,i)=>`
+    <li class="${r.id===highlightId?'me':''}">
+      <span class="pos">${medalha[i] || (i+1)+'º'}</span>
+      <b>${r.pts} pts</b>
+      <span>${r.words} ${r.words===1?'palavra':'palavras'}</span>
+      <span class="date">${fmt(r.date)}</span>
+    </li>`).join('');
+  return `<ol class="records">${linhas}</ol>`;
 }
 
 /* =========================================================
@@ -1106,7 +1152,9 @@ function renderStats(){
   document.getElementById('stWins').textContent=stats.wins;
   document.getElementById('stRate').textContent=stats.played? Math.round(stats.wins/stats.played*100)+'%':'0%';
   document.getElementById('stStreak').textContent=stats.streak;
-  document.getElementById('stBlitz').textContent = `⚡ Recorde no Relâmpago: ${stats.blitzBest} ${stats.blitzBest===1?'palavra':'palavras'}`;
+  document.getElementById('stBlitz').innerHTML = blitzRecords.length
+    ? blitzRecordsHTML(null, BLITZ_KEEP)
+    : '<p class="empty">Nenhuma rodada ainda — jogue o ⚡ Relâmpago!</p>';
   renderDist();
   renderAch();
 }
@@ -1261,7 +1309,8 @@ document.getElementById('tabBlitz').onclick=()=>setMode('blitz');
   if(st) Object.assign(stats, st);
   if(!Array.isArray(stats.dist) || stats.dist.length!==8) stats.dist = Array(8).fill(0);
   if(!Array.isArray(stats.groups)) stats.groups = [];
-  stats.blitzBest = stats.blitzBest || 0;
+  const bz = await store.get('dito:blitz');
+  if(Array.isArray(bz?.records)) blitzRecords = bz.records.filter(r=>r && r.pts>0).slice(0, BLITZ_KEEP);
   Object.assign(ach, (await store.get('dito:ach')) || {});
   buildThemeSelect();
   buildSegments();

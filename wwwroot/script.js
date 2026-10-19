@@ -115,9 +115,14 @@ const state = {
   locked:new Set(),
   groupHintUsed:false,
   gameId:0,
-  duel:false // partida vinda de um link de desafio: dicas/modo difícil/aceitar-qualquer-palavra travados no valor de quem criou
+  duel:false, // partida vinda de um link de desafio: dicas/modo difícil travados no valor de quem criou
+  blitz:null, // rodada do modo relâmpago: {score, deadline, timer, lastTick, over}
+  trail:null  // palavras ainda possíveis depois de cada palpite (análise do fim de jogo)
 };
-const stats = { played:0, wins:0, streak:0, dist:Array(8).fill(0) };
+// groups: grupos temáticos já acertados (conquista "Explorador");
+// blitzBest: recorde de palavras numa rodada do relâmpago
+const stats = { played:0, wins:0, streak:0, dist:Array(8).fill(0), groups:[], blitzBest:0 };
+const ach = {}; // conquistas desbloqueadas: id → data
 
 /* =========================================================
    PALAVRA DO DIA — mesma palavra pra todo mundo, sorteada a partir
@@ -207,15 +212,17 @@ const sfx = {
   error:   () => beep({freq:140, dur:.15, type:'sawtooth', vol:.12}),
   win:  () => [523,659,784,1047].forEach((f,i)=>beep({freq:f, dur:.16, vol:.16, delay:i*.11})),
   lose: () => [392,330,262].forEach((f,i)=>beep({freq:f, dur:.22, vol:.13, delay:i*.13})),
+  tick: () => beep({freq:990, dur:.03, type:'square', vol:.04}),
+  ach:  () => [784,1175].forEach((f,i)=>beep({freq:f, dur:.14, type:'triangle', vol:.14, delay:.5+i*.1})),
 };
 
 /* =========================================================
    CONFIGURAÇÃO
    ========================================================= */
 function buildSegments(){
-  // trava tamanho/tentativas/tema no diário (fixos em 5/6) e num duelo por link
-  // (a palavra do desafio já define esses valores, mudar quebraria o desafio)
-  const lockPlay = state.mode==='daily' || state.duel;
+  // trava tamanho/tentativas/tema no diário e no relâmpago (fixos em 5/6) e num
+  // duelo por link (a palavra do desafio já define esses valores, mudar quebraria o desafio)
+  const lockPlay = state.mode!=='free' || state.duel;
   const segLen = document.getElementById('segLen');
   segLen.innerHTML='';
   for(let n=3;n<=8;n++){
@@ -250,18 +257,23 @@ function buildSegments(){
 }
 /* botões "novo jogo" e "desafiar": desativados no modo diário (só uma
    tentativa por dia, palavra já é igual pra todo mundo) e dentro de um
-   duelo em andamento (evita abandonar/encadear desafio sobre desafio) */
+   duelo em andamento (evita abandonar/encadear desafio sobre desafio).
+   No relâmpago, "novo jogo" vira "pular palavra" (custa tempo) e
+   "desafiar" fica desativado. */
 function updatePlayActionBtns(){
-  const lockPlay = state.mode==='daily' || state.duel;
   const bNew = document.getElementById('btnNewGame');
-  if(bNew) bNew.disabled = lockPlay;
+  if(bNew){
+    bNew.disabled = state.mode==='daily' || state.duel;
+    bNew.textContent = state.mode==='blitz' ? `⏭️ Pular (−${BLITZ_SKIP}s)` : '🔄 Novo jogo';
+  }
   const bChallenge = document.getElementById('btnChallenge');
-  if(bChallenge) bChallenge.disabled = lockPlay;
+  if(bChallenge) bChallenge.disabled = state.mode!=='free' || state.duel;
 }
 /* abandona a partida atual e começa outra a qualquer momento; se estava num
    duelo por link, sai dele restaurando as configurações de antes (endDuel) */
 function startFresh(){
-  if(state.mode==='daily') return;
+  if(state.mode==='blitz') return skipBlitzWord();
+  if(state.mode!=='free') return;
   if(state.duel) endDuel();
   newGame();
 }
@@ -287,7 +299,16 @@ function buildThemeSelect(){
   };
 }
 function saveSettings(){
-  store.set('dito:settings',{len:state.len,tries:state.tries,hard:state.hard,hints:state.hints,sound:state.sound,theme:document.documentElement.dataset.theme,wordTheme:state.theme,mode:state.mode});
+  // fora do infinito, len/tries/tema estão fixos (5/6/todos): salva os do infinito,
+  // que são os que o jogador escolheu
+  const own = state.mode==='free' || state.savedLen===undefined;
+  store.set('dito:settings',{
+    len: own ? state.len : state.savedLen,
+    tries: own ? state.tries : state.savedTries,
+    wordTheme: own ? state.theme : state.savedTheme,
+    hard:state.hard,hints:state.hints,sound:state.sound,theme:document.documentElement.dataset.theme,
+    mode: state.mode==='blitz' ? 'free' : state.mode // relâmpago não volta sozinho ao recarregar
+  });
 }
 
 /* =========================================================
@@ -317,6 +338,8 @@ function newGame(forcedKey){
   state.hintLevel = 0;
   state.locked = new Set();
   state.groupHintUsed = false;
+  state.trail = null;
+  stopCountdown();
   endEl.innerHTML = '';
   hintEl.innerHTML = '';
   drawBoard();
@@ -482,7 +505,11 @@ function press(k){
   // e corrompe a tela de fim (setTimeout antigo mexendo no jogo novo)
   if(state.status==='ending') return;
   if(state.status!=='playing') {
-    if(k==='↵') newGame();
+    // no diário não há "jogar de novo": Enter não pode sortear outra palavra ali
+    if(k==='↵'){
+      if(state.mode==='blitz') startBlitz();
+      else if(state.mode==='free') newGame();
+    }
     return;
   }
   if(k==='↵') return submit();
@@ -506,6 +533,7 @@ function press(k){
   }
   if(/^[a-z]$/.test(k)){
     if(state.locked.has(state.cursor)) return;
+    if(state.mode==='blitz') blitzStartClock(); // o relógio só corre a partir da 1ª letra
     state.cur[state.cursor] = k;
     sfx.key();
     // pula pra frente as casinhas já travadas (verde-limão, posição confirmada),
@@ -675,11 +703,11 @@ function reject(msg){
   if(row){ row.classList.add('shake'); setTimeout(()=>row.classList.remove('shake'),500); }
 }
 
-function say(msg){
+function say(msg, ms=1600){
   const el=document.createElement('div');
   el.className='msg'; el.textContent=msg;
   toast.appendChild(el);
-  setTimeout(()=>el.remove(), 1600);
+  setTimeout(()=>el.remove(), ms);
 }
 
 /* =========================================================
@@ -692,13 +720,17 @@ function finish(won){
   setGroupHintBtn(false);
   paintKeyboard();
   won ? sfx.win() : sfx.lose();
+  // relâmpago não entra no placar normal: soma ponto e já passa pra próxima palavra
+  if(state.mode==='blitz') return blitzRoundEnd(won);
   stats.played++;
   if(won){
     stats.wins++; stats.streak++;
     if(state.row>=1 && state.row<=stats.dist.length) stats.dist[state.row-1]++;
+    const cat = wordGroup[state.answer];
+    if(cat && !stats.groups.includes(cat)) stats.groups.push(cat);
   } else { stats.streak=0; }
   store.set('dito:stats', stats);
-  renderStats();
+  state.trail = possibilitiesTrail(state.rows, answerPool());
 
   if(state.mode==='daily'){
     // só uma partida diária por dia: guarda o resultado pra bloquear replay
@@ -708,43 +740,315 @@ function finish(won){
     });
   }
 
+  // antes de endDuel(): as conquistas olham dicas/modo difícil/duelo desta partida
+  checkAchievements(won);
+  renderStats();
+
   // terminada a partida do desafio, libera as configurações de novo
   if(state.duel) endDuel();
 
   renderEndbar(
     won ? ELOGIOS[Math.max(0, Math.min(state.row-1, ELOGIOS.length-1))] : 'A palavra era',
     won ? `Acertou em ${state.row} de ${state.tries}` : 'Fica para a próxima',
-    { again: state.mode!=='daily' }
+    { again: state.mode!=='daily', trail: state.trail, countdown: state.mode==='daily' }
   );
+  if(won) confetti();
 }
 
 /* monta a barra de fim de jogo (vitória/derrota normal ou "já jogou hoje") */
 function renderEndbar(subTop, subBottom, opts={}){
+  stopCountdown();
   const box=document.createElement('div');
   box.className='endbar';
   box.innerHTML = `
     <div class="sub">${subTop}</div>
-    <div class="word">${state.answerRaw}</div>
+    <div class="word">${opts.word ?? state.answerRaw}</div>
     <div class="sub">${subBottom}</div>
+    ${opts.trail ? trailHTML(opts.trail) : ''}
+    ${opts.countdown ? '<div class="sub countdown"></div>' : ''}
     <div class="actions">
       ${opts.again!==false ? '<button class="btn" id="again">Jogar de novo</button>' : ''}
       <button class="btn ghost" id="share">Copiar resultado</button>
     </div>`;
   endEl.innerHTML='';
   endEl.appendChild(box);
-  if(opts.again!==false) document.getElementById('again').onclick=()=>{ if(state.duel) endDuel(); newGame(); };
+  if(opts.again!==false) document.getElementById('again').onclick=()=>{
+    if(state.mode==='blitz') return startBlitz();
+    if(state.duel) endDuel();
+    newGame();
+  };
   document.getElementById('share').onclick=share;
+  if(opts.countdown) startCountdown(box.querySelector('.countdown'));
   scrollAboveKeyboard(box);
 }
 
 function share(){
-  const emoji={correct:'🟩',present:'🟦',absent:'⬜'};
-  const head=`Dito ${state.len} letras — ${state.status==='win'?state.row:'X'}/${state.tries}`;
-  const grid=state.rows.map(r=>r.res.map(x=>emoji[x]).join('')).join('\n');
-  const text=head+'\n'+grid;
+  let text;
+  if(state.mode==='blitz' && state.blitz){
+    const n = state.blitz.score;
+    text = `Dito ⚡ Relâmpago — ${n} ${n===1?'palavra':'palavras'} contra o relógio`;
+  } else {
+    const emoji={correct:'🟩',present:'🟦',absent:'⬜'};
+    const placar = `${state.status==='win'?state.row:'X'}/${state.tries}`;
+    const head = state.mode==='daily' ? `Dito diário ${todayStr()} — ${placar}` : `Dito ${state.len} letras — ${placar}`;
+    const grid=state.rows.map(r=>r.res.map(x=>emoji[x]).join('')).join('\n');
+    text=head+'\n'+grid;
+    if(state.trail) text += `\n🔍 ${state.trail.join(' › ')}`;
+  }
+  if(location.protocol.startsWith('http')) text += '\n' + location.origin + location.pathname;
   navigator.clipboard?.writeText(text)
     .then(()=>say('Resultado copiado'))
     .catch(()=>say('Não foi possível copiar'));
+}
+
+/* =========================================================
+   ANÁLISE DA PARTIDA — quantas palavras do sorteio ainda batiam com
+   todas as pistas depois de cada palpite (estilo "robô do Wordle").
+   Só aparece no fim, pra não virar muleta durante o jogo.
+   ========================================================= */
+function answerPool(){
+  const pool = themePool(state.len, state.theme);
+  // duelo/diário/fallback podem sortear fora do tema: aí vale o tamanho inteiro
+  return pool.includes(state.answer) ? pool : DICT[state.len].keys;
+}
+function possibilitiesTrail(rows, pool){
+  let cands = pool;
+  return rows.map(r=>{
+    const sig = r.res.join();
+    cands = cands.filter(c => evaluate(r.guess, c).join()===sig);
+    return cands.length;
+  });
+}
+function trailHTML(trail){
+  const nums = trail.map(n=>`<span class="${n===1?'one':''}">${n}</span>`).join('<i>›</i>');
+  return `<div class="trail" title="Quantas palavras ainda eram possíveis depois de cada palpite">🔍 ${nums}<small>palavras possíveis após cada palpite</small></div>`;
+}
+
+/* =========================================================
+   CONTAGEM REGRESSIVA — até a próxima palavra do dia (meia-noite local)
+   ========================================================= */
+let countdownTimer = null;
+function stopCountdown(){
+  if(countdownTimer){ clearInterval(countdownTimer); countdownTimer = null; }
+}
+function startCountdown(el){
+  stopCountdown();
+  const day = todayStr();
+  const tick = ()=>{
+    // virou o dia com a tela aberta: já carrega a palavra nova
+    if(todayStr()!==day){
+      stopCountdown();
+      if(state.mode==='daily') enterDaily();
+      return;
+    }
+    const now = new Date();
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1);
+    const s = Math.max(0, Math.floor((midnight-now)/1000));
+    const pad = n => String(n).padStart(2,'0');
+    el.textContent = `⏳ Próxima palavra em ${pad(Math.floor(s/3600))}:${pad(Math.floor(s%3600/60))}:${pad(s%60)}`;
+  };
+  tick();
+  countdownTimer = setInterval(tick, 1000);
+}
+
+/* =========================================================
+   MODO RELÂMPAGO — contra o relógio: acertar o máximo de palavras de
+   5 letras antes do tempo acabar. Cada acerto devolve tempo; pular uma
+   palavra custa tempo. O relógio só começa na primeira letra digitada.
+   ========================================================= */
+const BLITZ_START = 150, BLITZ_BONUS = 30, BLITZ_SKIP = 10; // segundos
+const blitzBar = document.getElementById('blitzBar');
+function startBlitz(){
+  stopBlitzTimer();
+  state.blitz = { score:0, deadline:null, timer:null, lastTick:null, over:false };
+  newGame();
+  renderBlitzBar();
+}
+function blitzLeft(){
+  const b = state.blitz;
+  if(!b) return 0;
+  if(!b.deadline) return BLITZ_START;
+  return Math.max(0, (b.deadline - Date.now())/1000);
+}
+function blitzStartClock(){
+  const b = state.blitz;
+  if(!b || b.deadline || b.over) return;
+  b.deadline = Date.now() + BLITZ_START*1000;
+  b.timer = setInterval(blitzTick, 200);
+  renderBlitzBar();
+}
+function blitzTick(){
+  const b = state.blitz;
+  if(!b) return;
+  const left = blitzLeft();
+  const sec = Math.ceil(left);
+  if(sec<=10 && sec>0 && sec!==b.lastTick){ b.lastTick = sec; sfx.tick(); }
+  renderBlitzBar();
+  if(left<=0) endBlitz();
+}
+function stopBlitzTimer(){
+  if(state.blitz?.timer){ clearInterval(state.blitz.timer); state.blitz.timer = null; }
+}
+function renderBlitzBar(){
+  if(state.mode!=='blitz' || !state.blitz){ blitzBar.hidden = true; return; }
+  const b = state.blitz;
+  const left = blitzLeft();
+  const s = Math.ceil(left);
+  blitzBar.hidden = false;
+  blitzBar.classList.toggle('urgent', !!b.deadline && !b.over && left<=15);
+  blitzBar.innerHTML = `
+    <span class="clock">⏱️ ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}</span>
+    <span class="score">⚡ ${b.score} ${b.score===1?'palavra':'palavras'}</span>
+    ${b.deadline || b.over ? '' : '<span class="wait">digite para começar</span>'}
+    <div class="fill" style="width:${Math.min(100, left/BLITZ_START*100)}%"></div>`;
+}
+/* fim de uma palavra dentro do relâmpago (chamado por finish()) */
+function blitzRoundEnd(won){
+  const b = state.blitz;
+  if(!b || b.over) return;
+  if(won){
+    b.score++;
+    if(b.deadline) b.deadline += BLITZ_BONUS*1000;
+    say(`+${BLITZ_BONUS}s`);
+  } else {
+    say(`Era ${state.answerRaw.toUpperCase()}`);
+  }
+  renderBlitzBar();
+  // segura a entrada até a próxima palavra (press() ignora 'ending')
+  state.status = 'ending';
+  const gameId = state.gameId;
+  setTimeout(()=>{ if(state.gameId===gameId && !b.over) newGame(); }, 1100);
+}
+function skipBlitzWord(){
+  const b = state.blitz;
+  if(!b || b.over || state.status!=='playing') return;
+  blitzStartClock();
+  b.deadline -= BLITZ_SKIP*1000;
+  say(`Era ${state.answerRaw.toUpperCase()} (−${BLITZ_SKIP}s)`);
+  newGame();
+  renderBlitzBar();
+  if(blitzLeft()<=0) endBlitz();
+}
+function endBlitz(){
+  const b = state.blitz;
+  if(!b || b.over) return;
+  b.over = true;
+  stopBlitzTimer();
+  state.gameId++; // cancela revelação/próxima palavra pendentes da rodada
+  state.status = 'lose'; // Enter / "Jogar de novo" recomeçam o relâmpago
+  hintEl.innerHTML = ''; state.hintKey = null;
+  setGroupHintBtn(false);
+  markActiveRow();
+  board.querySelectorAll('.tile.active').forEach(t=>t.classList.remove('active'));
+  sfx.lose();
+  const recorde = b.score > stats.blitzBest;
+  if(recorde){ stats.blitzBest = b.score; store.set('dito:stats', stats); }
+  if(b.score>=5) unlock('raio');
+  if(b.score>=10) unlock('tempestade');
+  renderStats();
+  renderBlitzBar();
+  renderEndbar(
+    `⏱️ Tempo esgotado! A última era <b>${state.answerRaw.toUpperCase()}</b>`,
+    recorde ? '🎉 Novo recorde!' : `Recorde: ${stats.blitzBest}`,
+    { word: `${b.score} ${b.score===1?'palavra':'palavras'}` }
+  );
+  if(recorde) confetti();
+}
+
+/* =========================================================
+   CONQUISTAS — medalhas salvas neste navegador, listadas no Placar
+   ========================================================= */
+const ACHIEVEMENTS = [
+  {id:'primeira',   icon:'🌱', name:'Primeiro acerto', desc:'Vença uma partida'},
+  {id:'mosca',      icon:'🎯', name:'Na mosca',        desc:'Acerte na 1ª tentativa'},
+  {id:'faro',       icon:'👃', name:'Faro fino',       desc:'Acerte em até 2 tentativas'},
+  {id:'fio',        icon:'😅', name:'Por um fio',      desc:'Acerte na última tentativa'},
+  {id:'sozinho',    icon:'🧠', name:'Sem colinha',     desc:'Vença com as dicas desligadas e sem dica de grupo'},
+  {id:'casca',      icon:'🪨', name:'Casca grossa',    desc:'Vença no modo difícil'},
+  {id:'gigante',    icon:'🦕', name:'Palavrão',        desc:'Acerte uma palavra de 8 letras'},
+  {id:'apertado',   icon:'🎲', name:'Sem margem',      desc:'Vença com só 3 tentativas'},
+  {id:'embalado',   icon:'🔥', name:'Embalado',        desc:'Chegue a 5 vitórias seguidas'},
+  {id:'imparavel',  icon:'🚀', name:'Imparável',       desc:'Chegue a 15 vitórias seguidas'},
+  {id:'pontual',    icon:'📅', name:'Pontual',         desc:'Acerte a palavra do dia'},
+  {id:'duelista',   icon:'⚔️', name:'Duelista',        desc:'Vença um desafio recebido por link'},
+  {id:'raio',       icon:'⚡', name:'Raio',            desc:'Faça 5 palavras numa rodada do Relâmpago'},
+  {id:'tempestade', icon:'🌩️', name:'Tempestade',      desc:'Faça 10 palavras numa rodada do Relâmpago'},
+  {id:'explorador', icon:'🧭', name:'Explorador',      desc:'Acerte palavras de 10 grupos temáticos', goal:10, prog:()=>stats.groups.length},
+  {id:'veterano',   icon:'🎖️', name:'Veterano',        desc:'Jogue 50 partidas', goal:50, prog:()=>stats.played},
+];
+function unlock(id){
+  if(ach[id]) return;
+  const a = ACHIEVEMENTS.find(x=>x.id===id);
+  if(!a) return;
+  ach[id] = todayStr();
+  store.set('dito:ach', ach);
+  sfx.ach();
+  say(`🏆 Conquista: ${a.icon} ${a.name}`, 3000);
+}
+function checkAchievements(won){
+  if(won){
+    unlock('primeira');
+    if(state.row===1) unlock('mosca');
+    if(state.row<=2) unlock('faro');
+    if(state.row===state.tries && state.row>1) unlock('fio');
+    if(!state.hints && !state.groupHintUsed) unlock('sozinho');
+    if(state.hard) unlock('casca');
+    if(state.len===8) unlock('gigante');
+    if(state.tries===3) unlock('apertado');
+    if(stats.streak>=5) unlock('embalado');
+    if(stats.streak>=15) unlock('imparavel');
+    if(state.mode==='daily') unlock('pontual');
+    if(state.duel) unlock('duelista');
+    if(stats.groups.length>=10) unlock('explorador');
+  }
+  if(stats.played>=50) unlock('veterano');
+}
+function renderAch(){
+  const box = document.getElementById('stAch');
+  if(!box) return;
+  const n = ACHIEVEMENTS.filter(a=>ach[a.id]).length;
+  document.getElementById('stAchCount').textContent = `${n}/${ACHIEVEMENTS.length}`;
+  box.innerHTML = ACHIEVEMENTS.map(a=>{
+    const ok = !!ach[a.id];
+    const prog = !ok && a.prog ? ` (${Math.min(a.goal, a.prog())}/${a.goal})` : '';
+    return `<div class="badge${ok?'':' locked'}"><span class="ico">${a.icon}</span><span><b>${a.name}</b><small>${a.desc}${prog}</small></span></div>`;
+  }).join('');
+}
+
+/* =========================================================
+   CONFETE — chuva rápida em canvas na vitória (respeita movimento reduzido)
+   ========================================================= */
+function confetti(){
+  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cv = document.createElement('canvas');
+  cv.className = 'confetti';
+  const W = innerWidth, H = innerHeight, dpr = Math.min(2, window.devicePixelRatio||1);
+  cv.width = W*dpr; cv.height = H*dpr;
+  document.body.appendChild(cv);
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const cs = getComputedStyle(document.documentElement);
+  const cores = ['--correct','--present'].map(v=>cs.getPropertyValue(v).trim()).concat(['#f5c542','#ff7a59','#c084fc']);
+  const parts = Array.from({length:140}, ()=>({
+    x: W/2 + (Math.random()-.5)*W*.4, y: H*.4,
+    vx: (Math.random()-.5)*14, vy: -Math.random()*13-5,
+    r: Math.random()*Math.PI, vr: (Math.random()-.5)*.3,
+    w: 6+Math.random()*6, h: 4+Math.random()*4,
+    c: cores[Math.floor(Math.random()*cores.length)]
+  }));
+  const DUR = 2600, t0 = performance.now();
+  (function frame(t){
+    const el = t - t0;
+    ctx.clearRect(0,0,W,H);
+    ctx.globalAlpha = Math.max(0, 1 - el/DUR);
+    parts.forEach(p=>{
+      p.vy += .35; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r);
+      ctx.fillStyle = p.c; ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+      ctx.restore();
+    });
+    if(el < DUR) requestAnimationFrame(frame); else cv.remove();
+  })(t0);
 }
 
 /* =========================================================
@@ -802,7 +1106,9 @@ function renderStats(){
   document.getElementById('stWins').textContent=stats.wins;
   document.getElementById('stRate').textContent=stats.played? Math.round(stats.wins/stats.played*100)+'%':'0%';
   document.getElementById('stStreak').textContent=stats.streak;
+  document.getElementById('stBlitz').textContent = `⚡ Recorde no Relâmpago: ${stats.blitzBest} ${stats.blitzBest===1?'palavra':'palavras'}`;
   renderDist();
+  renderAch();
 }
 function renderDist(){
   const box = document.getElementById('stDist');
@@ -819,24 +1125,29 @@ function renderDist(){
 /* =========================================================
    MODO DIÁRIO — sorteia (ou restaura) a palavra do dia
    ========================================================= */
+function updateModeTabs(){
+  document.querySelectorAll('#modeTabs .tab').forEach(t=>t.setAttribute('aria-pressed', t.dataset.mode===state.mode));
+}
 function setMode(mode){
   if(state.mode===mode) return;
   if(state.duel) endDuel(); // trocar de modo abandona um duelo em andamento
+  if(state.mode==='blitz'){ stopBlitzTimer(); state.blitz = null; }
+  // guarda as escolhas do infinito pra restaurar ao voltar pra ele
+  if(state.mode==='free'){ state.savedLen = state.len; state.savedTries = state.tries; state.savedTheme = state.theme; }
   state.mode = mode;
-  document.getElementById('tabDaily').setAttribute('aria-pressed', mode==='daily');
-  document.getElementById('tabFree').setAttribute('aria-pressed', mode==='free');
-  if(mode==='daily'){
-    state.savedLen = state.len; state.savedTries = state.tries; state.savedTheme = state.theme;
-    state.len = DAILY_LEN; state.tries = DAILY_TRIES; state.theme = null;
-    buildThemeSelect();
-    buildSegments();
-    enterDaily();
-  } else {
+  updateModeTabs();
+  if(mode==='free'){
     if(state.savedLen){ state.len = state.savedLen; state.tries = state.savedTries; state.theme = state.savedTheme; }
-    buildThemeSelect();
-    buildSegments();
-    newGame();
+  } else {
+    // diário e relâmpago: sempre 5 letras, 6 tentativas, todos os temas
+    state.len = DAILY_LEN; state.tries = DAILY_TRIES; state.theme = null;
   }
+  buildThemeSelect();
+  buildSegments();
+  renderBlitzBar();
+  if(mode==='daily') enterDaily();
+  else if(mode==='blitz') startBlitz();
+  else newGame();
   saveSettings();
 }
 async function enterDaily(){
@@ -863,10 +1174,11 @@ function showDailyDone(saved){
   kb.innerHTML='';
   hintEl.innerHTML='';
   setGroupHintBtn(false);
+  state.trail = possibilitiesTrail(saved.rows, DICT[saved.len].keys);
   renderEndbar(
     'Você já jogou o Dito de hoje',
     saved.status==='win' ? `Acertou em ${saved.rows.length} de ${saved.tries}` : 'Não foi dessa vez',
-    { again:false }
+    { again:false, trail: state.trail, countdown:true }
   );
 }
 function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open')); }
@@ -922,6 +1234,7 @@ document.getElementById('optHard').onchange=e=>{
 };
 document.getElementById('tabDaily').onclick=()=>setMode('daily');
 document.getElementById('tabFree').onclick=()=>setMode('free');
+document.getElementById('tabBlitz').onclick=()=>setMode('blitz');
 
 /* =========================================================
    INÍCIO
@@ -947,6 +1260,9 @@ document.getElementById('tabFree').onclick=()=>setMode('free');
   const st = await store.get('dito:stats');
   if(st) Object.assign(stats, st);
   if(!Array.isArray(stats.dist) || stats.dist.length!==8) stats.dist = Array(8).fill(0);
+  if(!Array.isArray(stats.groups)) stats.groups = [];
+  stats.blitzBest = stats.blitzBest || 0;
+  Object.assign(ach, (await store.get('dito:ach')) || {});
   buildThemeSelect();
   buildSegments();
   renderStats();
@@ -965,8 +1281,7 @@ document.getElementById('tabFree').onclick=()=>setMode('free');
     state.hints = incoming.hints; state.hard = incoming.hard;
     document.getElementById('optHints').checked = state.hints;
     document.getElementById('optHard').checked = state.hard;
-    document.getElementById('tabDaily').setAttribute('aria-pressed', false);
-    document.getElementById('tabFree').setAttribute('aria-pressed', true);
+    updateModeTabs();
     buildThemeSelect();
     buildSegments();
     newGame(incoming.key);
@@ -978,12 +1293,11 @@ document.getElementById('tabFree').onclick=()=>setMode('free');
     state.mode = 'daily';
     state.savedLen = state.len; state.savedTries = state.tries; state.savedTheme = state.theme;
     state.len = DAILY_LEN; state.tries = DAILY_TRIES; state.theme = null;
-    document.getElementById('tabDaily').setAttribute('aria-pressed', true);
-    document.getElementById('tabFree').setAttribute('aria-pressed', false);
+    updateModeTabs();
     buildSegments();
     enterDaily();
   } else {
-    document.getElementById('tabFree').setAttribute('aria-pressed', true);
+    updateModeTabs();
     newGame();
   }
 })();

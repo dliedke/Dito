@@ -227,6 +227,32 @@ main{
 }
 .endbar .sub{font-size:13px;color:var(--ink-soft)}
 .endbar .actions{display:flex;gap:8px;margin-top:4px}
+.endbar .countdown{font-variant-numeric:tabular-nums;font-weight:700}
+
+/* análise: palavras possíveis após cada palpite */
+.trail{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px;font-size:13px;font-weight:700}
+.trail span{background:var(--key);border-radius:6px;padding:2px 7px;font-variant-numeric:tabular-nums}
+.trail span.one{background:var(--correct);color:var(--correct-ink)}
+.trail i{font-style:normal;color:var(--ink-soft)}
+.trail small{flex-basis:100%;text-align:center;font-size:11px;font-weight:500;color:var(--ink-soft)}
+
+/* ---------- modo relâmpago: relógio + placar da rodada ---------- */
+#blitzBar{
+  position:relative;overflow:hidden;
+  display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;justify-content:center;
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:8px 16px 10px;min-width:min(94vw,300px);
+  font-weight:700;font-size:14px;
+}
+#blitzBar[hidden]{display:none}
+#blitzBar .clock{font-size:17px;font-variant-numeric:tabular-nums}
+#blitzBar .wait{flex-basis:100%;text-align:center;font-size:12px;font-weight:500;color:var(--ink-soft)}
+#blitzBar .fill{position:absolute;left:0;bottom:0;height:4px;background:var(--correct);transition:width .2s linear}
+#blitzBar.urgent .clock{color:#e5484d;animation:pulse 1s ease-in-out infinite}
+#blitzBar.urgent .fill{background:#e5484d}
+
+/* confete da vitória */
+.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:70}
 .btn{
   border:0;border-radius:9px;padding:10px 16px;
   font-weight:700;font-size:14px;
@@ -300,6 +326,15 @@ main{
 .distfill{height:100%;background:var(--correct);border-radius:4px;transition:width .3s ease;min-width:2px}
 .distcount{width:22px;text-align:right;font-size:12px;font-weight:700;color:var(--ink-soft);flex:none}
 .close{margin-top:12px;width:100%}
+
+/* conquistas no placar */
+.ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:6px;margin:6px 0 4px}
+.badge{display:flex;gap:8px;align-items:center;background:var(--key);border-radius:10px;padding:8px}
+.badge .ico{font-size:22px;flex:none}
+.badge b{display:block;font-size:13px}
+.badge small{display:block;font-size:11px;color:var(--ink-soft);line-height:1.3}
+.badge.locked .ico{filter:grayscale(1);opacity:.35}
+.badge.locked b{color:var(--ink-soft)}
 @media (max-width:400px){ .key{height:46px;font-size:14px} }
 
 /* telas bem estreitas (ex.: iPhone SE) — evita que os botões do topo estourem a largura */
@@ -307,6 +342,7 @@ main{
   header{gap:4px;padding-left:max(8px, env(safe-area-inset-left));padding-right:max(8px, env(safe-area-inset-right))}
   .icon-btn{height:36px;min-width:36px;padding:0 8px;font-size:12px;gap:4px}
   .brand span{width:22px;height:24px;font-size:16px}
+  .mode-tabs .tab{padding:7px 9px;font-size:12px}
 }
 
 /* celular em modo paisagem — pouca altura disponível, reduz respiros verticais */

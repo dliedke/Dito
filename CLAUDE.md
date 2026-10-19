@@ -133,6 +133,37 @@ jogo, painéis/tema, início). Pontos importantes:
   só há uma tentativa por dia; se a partida abandonada era um duelo, chama
   `endDuel()` antes de sortear a próxima.
 
+- **Modo relâmpago** (`state.mode==='blitz'`, aba "⚡ Relâmpago"): contra o
+  relógio, sempre 5 letras/6 tentativas, travado como o diário em
+  `buildSegments()` (`lockPlay = state.mode!=='free' || state.duel`). Estado em
+  `state.blitz` (`score`, `deadline`, `timer`, `over`); o relógio só começa na
+  1ª letra digitada (`blitzStartClock()` em `press()`). `finish()` desvia pra
+  `blitzRoundEnd()` (não conta no placar normal), que põe o status de volta em
+  `'ending'` e sorteia a próxima palavra num `setTimeout` com checagem de
+  `gameId`. `endBlitz()` incrementa `gameId` pra cancelar revelações pendentes.
+  "🔄 Novo jogo" vira "⏭️ Pular" (custa `BLITZ_SKIP` segundos). Ao sair do modo,
+  `setMode()` para o `setInterval` e zera `state.blitz`. O modo não é restaurado
+  ao recarregar (`saveSettings()` grava `'free'`).
+- **`setMode()`** guarda tamanho/tentativas/tema em `state.savedLen/...` sempre
+  que **sai** do infinito e restaura ao voltar; `saveSettings()` grava esses
+  valores salvos (não os 5/6 fixos) quando o modo atual não é o infinito.
+- **Análise do fim de jogo**: `possibilitiesTrail(rows, pool)` conta quantas
+  palavras de `answerPool()` ainda batiam com todas as pistas depois de cada
+  palpite (`state.trail`), mostrado no fim (`renderEndbar({trail})`) e no texto
+  de "Copiar resultado". Só no fim, de propósito — durante o jogo viraria muleta.
+- **Conquistas**: `ACHIEVEMENTS` (id/ícone/nome/descrição) + `ach` salvo em
+  `store['dito:ach']`; `checkAchievements()` roda em `finish()` **antes** de
+  `endDuel()` (precisa ver dicas/modo difícil/duelo da partida). As do
+  relâmpago são liberadas em `endBlitz()`. Listadas no Placar (`renderAch()`).
+  `stats.groups` (grupos já acertados) e `stats.blitzBest` vivem em `dito:stats`.
+- **Contagem regressiva** do diário (`startCountdown()`): um `setInterval`
+  global (`countdownTimer`), parado em `newGame()` e a cada `renderEndbar()`;
+  se o dia virar com a tela aberta, chama `enterDaily()`.
+- No diário, Enter depois do fim **não** sorteia outra palavra (`press()` só
+  reinicia no infinito/relâmpago).
+- **Confete** (`confetti()`): canvas temporário na vitória e no recorde do
+  relâmpago; ignorado com `prefers-reduced-motion`.
+
 - **Layout no celular**: `#keyboard` é `position:sticky; bottom:0` (por isso
   `html,body` usam `min-height`, não `height`), então fica sempre visível
   mesmo quando o conteúdo passa da altura da tela. Como ele pode cobrir a

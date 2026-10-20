@@ -1260,9 +1260,9 @@ document.getElementById('btnConfig').onclick=()=>{
 // no celular o painel de ajustes começa fechado — aberto, ele ocupa quase meia
 // tela e empurra tabuleiro/teclado pra baixo
 if(window.matchMedia('(max-width:600px)').matches) setConfigOpen(false);
-// visuais: claro → escuro → doido (3D neon) → claro...
+// visuais: claro → escuro → 3D (chave "doido" preserva as preferências salvas)
 const THEMES = ['light','dark','doido'];
-const THEME_COLOR = {light:'#f2f3f5', dark:'#101216', doido:'#0b0220'};
+const THEME_COLOR = {light:'#f2f3f5', dark:'#101216', doido:'#101b23'};
 function updateThemeColor(){
   const t = document.documentElement.dataset.theme || 'light';
   const meta = document.getElementById('metaTheme');
@@ -1271,7 +1271,7 @@ function updateThemeColor(){
   const next = THEMES[(THEMES.indexOf(t)+1) % THEMES.length];
   const btn = document.getElementById('btnTheme');
   btn.textContent = next==='doido' ? '🌀' : next==='dark' ? '🌙' : '☀️';
-  btn.title = next==='doido' ? 'Visual doido 3D' : next==='dark' ? 'Visual escuro' : 'Visual claro';
+  btn.title = next==='doido' ? 'Visual 3D' : next==='dark' ? 'Visual escuro' : 'Visual claro';
   if(t!=='doido'){ board.style.removeProperty('--tx'); board.style.removeProperty('--ty'); }
 }
 document.getElementById('btnTheme').onclick=()=>{
@@ -1281,13 +1281,19 @@ document.getElementById('btnTheme').onclick=()=>{
   updateThemeColor();
   saveSettings();
 };
-// visual doido: o tabuleiro 3D inclina de leve seguindo o mouse (no celular fica parado)
-document.addEventListener('pointermove', e=>{
+// O movimento fica restrito à área de jogo; ao sair, a bandeja volta ao centro.
+const playArea = document.querySelector('main');
+playArea.addEventListener('pointermove', e=>{
   if(e.pointerType!=='mouse' || document.documentElement.dataset.theme!=='doido') return;
-  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const x = e.clientX/window.innerWidth - .5, y = e.clientY/window.innerHeight - .5;
-  board.style.setProperty('--tx', (x*10).toFixed(1)+'deg');
-  board.style.setProperty('--ty', (-y*6).toFixed(1)+'deg');
+  if(window.matchMedia('(prefers-reduced-motion: reduce), (max-width:600px)').matches) return;
+  const area = playArea.getBoundingClientRect();
+  const x = (e.clientX-area.left)/area.width - .5, y = (e.clientY-area.top)/area.height - .5;
+  board.style.setProperty('--tx', (x*3).toFixed(1)+'deg');
+  board.style.setProperty('--ty', (-y*2).toFixed(1)+'deg');
+});
+playArea.addEventListener('pointerleave', ()=>{
+  board.style.removeProperty('--tx');
+  board.style.removeProperty('--ty');
 });
 document.getElementById('btnSound').onclick=e=>{
   state.sound = !state.sound;

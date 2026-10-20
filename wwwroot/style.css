@@ -402,222 +402,244 @@ main{
 @media (prefers-reduced-motion:reduce){ *{animation:none !important;transition:none !important} }
 
 /* =========================================================
-   VISUAL DOIDO 3D (data-theme="doido")
-   synthwave neon: céu roxo, sol listrado e chão quadriculado bem ao fundo
-   (apagadinhos, pra não brigar com o jogo), tabuleiro levemente inclinado
-   em perspectiva, casinhas e teclas com volume
+   VISUAL 3D (data-theme="doido", mantido para as preferências já salvas)
+   Azul-petróleo, menta e peças táteis sobre uma base de mesa.
    ========================================================= */
 @property --tx{syntax:'<angle>';inherits:false;initial-value:0deg}
 @property --ty{syntax:'<angle>';inherits:false;initial-value:0deg}
 html[data-theme="doido"]{
-  --bg:#14052b;
-  --panel:rgba(26,9,56,.78);
-  --ink:#fff7ff;
-  --ink-soft:#cbb4f5;
-  --line:rgba(190,120,255,.32);
-  --tile-empty:rgba(24,8,52,.88);
-  --tile-border:rgba(160,110,255,.45);
-  --tile-typed:#ff5cd6;
-  --correct:#b6f400;
-  --correct-ink:#14052b;
-  --present:#2ee6ff;
-  --present-ink:#14052b;
-  --absent:#2c2248;
-  --absent-ink:#8a7db3;
-  --key:#43228c;
-  --key-ink:#fff7ff;
+  color-scheme:dark;
+  --bg:#101b23;
+  --panel:#1b2a34;
+  --ink:#edf3f4;
+  --ink-soft:#a6b7c1;
+  --line:#344751;
+  --tile-empty:#2a3b46;
+  --tile-border:#405560;
+  --tile-typed:#a8c9bd;
+  --correct:#91d5b3;
+  --correct-ink:#163b2c;
+  --present:#96c4e5;
+  --present-ink:#18394f;
+  --absent:#24313b;
+  --absent-ink:#a7b5bf;
+  --key:#d3dfe3;
+  --key-ink:#243a46;
   --radius:12px;
-  --side:#24104f;           /* "lateral" (volume) da casinha/tecla */
-  /* o céu fica no html e o body fica transparente: senão o fundo do body
-     cobre o sol e o chão (::before/::after com z-index negativo) */
-  background:linear-gradient(180deg,#0b0220 0%,#1d0748 40%,#3d0f63 70%,#6b1a6e 100%) fixed #14052b;
+  --side:#101a22;
+  background:var(--bg);
 }
-html[data-theme="doido"] body{background:transparent}
-/* sol listrado no horizonte, discreto */
-html[data-theme="doido"] body::before{
-  content:"";position:fixed;z-index:-2;pointer-events:none;
-  left:50%;bottom:30vh;width:min(80vw,520px);aspect-ratio:2/1;transform:translateX(-50%);
-  border-radius:999px 999px 0 0;
+html[data-theme="doido"] body{
   background:
-    repeating-linear-gradient(180deg,transparent 0 14px,rgba(20,5,43,.85) 14px 18px),
-    linear-gradient(180deg,#ffe66b 0%,#ff8a4c 50%,#ff3d9a 100%);
-  opacity:.38;
-  filter:blur(.5px) drop-shadow(0 0 30px rgba(255,61,154,.6));
+    radial-gradient(ellipse at 18% 30%,rgba(97,158,144,.12),transparent 52%),
+    radial-gradient(ellipse at 85% 75%,rgba(108,150,181,.09),transparent 48%),
+    var(--bg);
+  background-attachment:fixed;
 }
-/* chão quadriculado em perspectiva, andando devagar em direção à tela */
-html[data-theme="doido"] body::after{
-  content:"";position:fixed;z-index:-1;pointer-events:none;
-  left:-50%;right:-50%;bottom:0;height:30vh;
-  background:
-    linear-gradient(90deg,rgba(255,92,214,.32) 1px,transparent 1px) 0 0/56px 56px,
-    linear-gradient(0deg,rgba(255,92,214,.32) 1px,transparent 1px) 0 0/56px 56px,
-    linear-gradient(180deg,#1a0640,#2a0a52);
-  transform:perspective(260px) rotateX(55deg);
-  transform-origin:50% 0;
-  animation:gridrun 3s linear infinite;
-  -webkit-mask:linear-gradient(180deg,transparent,#000 40%);
-          mask:linear-gradient(180deg,transparent,#000 40%);
-}
-@keyframes gridrun{to{background-position:0 56px,0 56px,0 0}}
 
-/* topo, ajustes e painéis viram vidro escuro */
-html[data-theme="doido"] header,
+/* Cabeçalho discreto e ajustes agrupados em um painel. */
+html[data-theme="doido"] header{
+  background:rgba(16,27,35,.94);
+  -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+  padding:14px max(20px, calc((100vw - 1120px) / 2), env(safe-area-inset-right)) 14px max(20px, calc((100vw - 1120px) / 2), env(safe-area-inset-left));
+  border-color:rgba(166,183,193,.13);
+}
 html[data-theme="doido"] .config{
-  background:rgba(11,2,32,.7);
-  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
-  border-bottom:1px solid var(--line);
+  width:calc(100% - 40px);max-width:1000px;
+  margin:18px 20px 0;padding:14px 18px;gap:16px;
+  background:var(--panel);border:1px solid var(--line);border-radius:16px;
+  box-shadow:0 2px 0 rgba(0,0,0,.12),inset 0 1px 0 rgba(255,255,255,.03);
 }
-html[data-theme="doido"] .brand{perspective:300px;gap:5px}
+html[data-theme="doido"] .brand{gap:5px}
+html[data-theme="doido"] .brand::after{
+  content:"3D";margin-left:8px;padding:4px 6px;
+  border:1px solid var(--line);border-radius:5px;
+  color:var(--ink-soft);font-size:10px;font-weight:700;letter-spacing:.08em;
+}
 html[data-theme="doido"] .brand span{
-  font-family:"Bungee","Bricolage Grotesque",sans-serif;font-weight:400;font-size:17px;
-  border-radius:7px;
-  box-shadow:0 3px 0 var(--side),0 0 12px rgba(255,92,214,.35);
-  animation:brandflip .5s ease both, brandspin 6s ease-in-out infinite;
+  width:29px;height:31px;border-radius:7px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 3px 0 var(--side),0 5px 8px rgba(0,0,0,.18);
 }
-html[data-theme="doido"] .brand span:nth-child(1){background:#ff5cd6;color:#14052b;animation-delay:.05s,.2s}
-html[data-theme="doido"] .brand span:nth-child(2){animation-delay:.15s,.5s}
-html[data-theme="doido"] .brand span:nth-child(3){background:#ffe66b;color:#14052b;animation-delay:.25s,.8s}
-html[data-theme="doido"] .brand span:nth-child(4){animation-delay:.35s,1.1s}
-@keyframes brandspin{0%,80%,100%{transform:none}90%{transform:rotateY(360deg)}}
+html[data-theme="doido"] .brand span:nth-child(1){background:#e5ddca;color:#463f31}
+html[data-theme="doido"] .brand span:nth-child(3){background:#d3dfe3;color:#243a46}
 html[data-theme="doido"] .icon-btn{
-  background:rgba(67,34,140,.55);border-color:var(--line);
-  box-shadow:0 3px 0 var(--side);
-  transition:transform .08s ease, box-shadow .08s ease, background .15s ease;
+  background:var(--panel);border-color:var(--line);border-radius:10px;
+  box-shadow:0 2px 0 var(--side);
+  transition:transform .12s ease,background .12s ease;
 }
-html[data-theme="doido"] .icon-btn:hover{background:#55309f}
-html[data-theme="doido"] .icon-btn:active{transform:translateY(3px);box-shadow:0 0 0 var(--side)}
-html[data-theme="doido"] #selTheme{background:#2a1260;border-color:var(--line)}
-html[data-theme="doido"] .seg{background:rgba(11,2,32,.65);box-shadow:0 0 0 1px var(--line) inset}
-html[data-theme="doido"] .seg button[aria-pressed="true"]{box-shadow:0 3px 0 #5f8000}
+html[data-theme="doido"] .icon-btn:hover{background:#2d414d}
+html[data-theme="doido"] .icon-btn:active{transform:translateY(2px);box-shadow:none}
+html[data-theme="doido"] #selTheme{
+  background:#14232d;color:var(--ink);border-color:var(--line);height:38px;
+}
+html[data-theme="doido"] .seg{background:#14232d;box-shadow:inset 0 1px 3px rgba(0,0,0,.18)}
+html[data-theme="doido"] .seg button[aria-pressed="true"]{
+  background:#c2dfd2;box-shadow:0 2px 4px rgba(0,0,0,.2);
+}
 html[data-theme="doido"] .check input{accent-color:var(--correct)}
-html[data-theme="doido"] .mode-tabs{background:rgba(11,2,32,.65);box-shadow:0 0 0 1px var(--line)}
-html[data-theme="doido"] .mode-tabs .tab{opacity:.75}
+html[data-theme="doido"] .mode-tabs{
+  background:#14232d;border:1px solid var(--line);border-radius:13px;padding:4px;gap:4px;
+  box-shadow:inset 0 2px 4px rgba(0,0,0,.15);
+}
+html[data-theme="doido"] .mode-tabs .tab{
+  color:var(--ink-soft);opacity:1;padding:9px 18px;border-radius:9px;
+}
 html[data-theme="doido"] .mode-tabs .tab[aria-pressed="true"]{
-  opacity:1;
-  background:linear-gradient(180deg,#ff7be0,#c22cae);color:#fff;
-  box-shadow:0 3px 0 #6d0f61,0 0 14px rgba(255,92,214,.5);
+  background:#c2dfd2;color:var(--correct-ink);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 2px 4px rgba(0,0,0,.2);
 }
 
-/* tabuleiro levemente inclinado; segue o mouse de leve (--tx/--ty via script) */
-html[data-theme="doido"] main{perspective:1100px}
+/* Uma bandeja dá profundidade sem comprometer a leitura das letras. */
+html[data-theme="doido"] main{perspective:1400px;padding:22px 8px 26px;gap:14px}
+html[data-theme="doido"] #hint:empty,
+html[data-theme="doido"] #end:empty{display:none}
 html[data-theme="doido"] #board{
-  --gap:8px;
-  transform:rotateX(calc(9deg + var(--ty,0deg))) rotateY(var(--tx,0deg));
-  transition:--tx .4s ease-out, --ty .4s ease-out;
-  padding:6px 4px 14px;
+  --gap:9px;
+  padding:20px 20px 26px;margin-top:4px;
+  background:linear-gradient(145deg,#23343f,#182730);
+  border:1px solid #40535e;border-radius:24px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 7px 0 #0c171e,0 8px 0 #30424b,0 22px 36px rgba(0,0,0,.25);
+  transform:rotateX(calc(4deg + var(--ty,0deg))) rotateY(var(--tx,0deg));
+  transition:--tx .5s ease-out,--ty .5s ease-out;
 }
 html[data-theme="doido"] .tile{
-  --side:#170638;
-  font-family:"Bungee","Space Grotesk",sans-serif;font-weight:400;
-  font-size:calc(var(--tile) * .44);
-  border-width:2px;
-  box-shadow:0 5px 0 var(--side),0 8px 12px rgba(0,0,0,.35);
+  --side:#13212a;
+  font-family:"Bricolage Grotesque",sans-serif;font-weight:800;
+  font-size:calc(var(--tile) * .48);border-width:1px;
+  background-image:linear-gradient(rgba(255,255,255,.045),transparent);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 4px 0 var(--side),0 6px 8px rgba(0,0,0,.2);
 }
-/* letra digitada, ainda não avaliada */
+html[data-theme="doido"] .active-row .tile:where(:not(.filled,.locked,.active)){border-color:#647e89}
 html[data-theme="doido"] .tile.filled{
-  border-color:var(--tile-typed);
-  box-shadow:0 5px 0 #7d1a69,0 0 12px rgba(255,92,214,.45);
+  --side:#77958d;
+  background-color:#dce8e2;border-color:#eaf3ef;color:#233d36;
   animation:pop3d .16s ease;
 }
-@keyframes pop3d{0%{transform:translateY(-6px) scale(1.1)}100%{transform:none}}
-/* casinhas avaliadas: precisam vir depois de .filled (mesma especificidade),
-   senão a borda/brilho rosa da letra digitada fica por cima da cor do resultado */
+@keyframes pop3d{from{transform:translateY(-3px)}to{transform:none}}
+/* Os resultados vêm depois de .filled para preservar suas cores e bordas. */
 html[data-theme="doido"] .tile.correct,
 html[data-theme="doido"] .tile.locked{
-  --side:#5f8000;
-  background:var(--correct);border-color:var(--correct);color:var(--correct-ink);
-  box-shadow:0 5px 0 var(--side),0 0 16px rgba(182,244,0,.45);
+  --side:#4d8b70;
+  background-color:var(--correct);border-color:#b2e5cb;color:var(--correct-ink);
 }
 html[data-theme="doido"] .tile.present{
-  --side:#0a7488;
-  background:var(--present);border-color:var(--present);color:var(--present-ink);
-  box-shadow:0 5px 0 var(--side),0 0 16px rgba(46,230,255,.4);
+  --side:#527f9d;
+  background-color:var(--present);border-color:#badcf2;color:var(--present-ink);
 }
 html[data-theme="doido"] .tile.absent{
-  --side:#150c2a;
-  background:var(--absent);border-color:var(--absent);color:var(--absent-ink);
-  box-shadow:0 5px 0 var(--side),0 6px 8px rgba(0,0,0,.35);
+  --side:#111e27;
+  background-color:var(--absent);border-color:#344650;color:var(--absent-ink);
 }
 html[data-theme="doido"] .tile.active{
-  border-color:var(--present);
-  box-shadow:0 5px 0 #0a7488,0 0 0 2px var(--present) inset,0 0 14px rgba(46,230,255,.5);
+  border-color:var(--correct);
+  box-shadow:inset 0 0 0 1px var(--correct),0 4px 0 var(--side),0 6px 8px rgba(0,0,0,.2);
 }
-html[data-theme="doido"] .tile.ghost{color:#c9a6ff;opacity:.55}
+html[data-theme="doido"] .tile.ghost{color:#b1cbbf;opacity:1}
 html[data-theme="doido"] .tile.reveal{animation:flip3d .5s ease forwards}
-/* a cor troca no meio (250ms), quando a casinha está de lado */
 @keyframes flip3d{
   0%{transform:none}
-  49%,50%{transform:translateY(-10px) rotateX(90deg)}
+  49%,50%{transform:translateY(-4px) rotateX(90deg)}
   100%{transform:none}
 }
-html[data-theme="doido"] .row.win .tile{animation:jump3d .7s ease}
+html[data-theme="doido"] .row.win .tile{animation-name:jump3d;animation-duration:.6s}
 @keyframes jump3d{
   0%,100%{transform:none}
-  40%{transform:translateY(-26px) rotateX(360deg) scale(1.1)}
-  70%{transform:translateY(3px)}
+  40%{transform:translateY(-12px) rotateX(12deg)}
+  70%{transform:translateY(2px)}
 }
 
-/* painéis de vidro */
 html[data-theme="doido"] .hintbar,
 html[data-theme="doido"] .endbar,
 html[data-theme="doido"] #blitzBar,
 html[data-theme="doido"] .sheet-card{
-  background:rgba(26,9,56,.85);
-  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
-  border:1px solid var(--line);
-  box-shadow:0 10px 30px rgba(0,0,0,.45),0 0 24px rgba(255,92,214,.18);
+  background:var(--panel);border:1px solid var(--line);border-radius:16px;
+  box-shadow:0 8px 24px rgba(0,0,0,.16);
 }
-html[data-theme="doido"] .hintbar{border-left:4px solid var(--present)}
-html[data-theme="doido"] .endbar .word{
-  font-family:"Bungee",sans-serif;font-weight:400;font-size:28px;color:#ffe66b;
-  text-shadow:0 2px 0 #ff5cd6,0 4px 0 #6d0f61,0 6px 12px rgba(0,0,0,.5);
-}
-html[data-theme="doido"] .sheet-card h2{font-family:"Bungee",sans-serif;font-weight:400;color:#ffe66b;text-shadow:0 3px 0 #c22cae}
-html[data-theme="doido"] .sheet{background:rgba(8,1,22,.7)}
-html[data-theme="doido"] .msg{background:#ffe66b;color:#14052b;box-shadow:0 4px 0 #b86f00,0 0 18px rgba(255,230,107,.5)}
-html[data-theme="doido"] #blitzBar .clock{font-family:"Bungee",sans-serif;font-weight:400;color:#ffe66b}
-html[data-theme="doido"] #blitzBar .fill{height:5px;box-shadow:0 0 12px var(--correct)}
-html[data-theme="doido"] #blitzBar.urgent .clock{color:#ff4d6d}
+html[data-theme="doido"] .hintbar{border-left:3px solid var(--present);color:#cbdbe3}
+html[data-theme="doido"] .endbar .word{font-size:28px;color:var(--correct)}
+html[data-theme="doido"] .sheet-card h2{color:var(--ink);font-size:24px}
+html[data-theme="doido"] .sheet{background:rgba(6,15,21,.72);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+html[data-theme="doido"] .msg{background:#e5ddca;color:#383b32;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+html[data-theme="doido"] #blitzBar .clock{color:var(--correct)}
+html[data-theme="doido"] #blitzBar.urgent .clock{color:#f6a39a}
 html[data-theme="doido"] .trail span,
 html[data-theme="doido"] .records li,
 html[data-theme="doido"] .stat,
-html[data-theme="doido"] .badge{background:rgba(67,34,140,.55)}
+html[data-theme="doido"] .badge{background:#263943}
+html[data-theme="doido"] .trail span.one,
 html[data-theme="doido"] .records li.me{background:var(--correct)}
 
-/* botões com volume, afundam ao clicar */
 html[data-theme="doido"] .btn{
-  box-shadow:0 4px 0 #5f8000;
-  transition:transform .08s ease, box-shadow .08s ease;
+  border:1px solid transparent;border-radius:10px;
+  box-shadow:0 3px 0 #4d8b70;
+  transition:transform .12s ease,background .12s ease;
 }
-html[data-theme="doido"] .btn.ghost{background:rgba(67,34,140,.6);box-shadow:0 4px 0 var(--side),0 0 0 1px var(--line) inset}
-html[data-theme="doido"] .btn:active{transform:translateY(4px);box-shadow:0 0 0 transparent}
+html[data-theme="doido"] .btn.ghost{
+  background:#263943;color:#d8e5e9;border-color:#3a505c;box-shadow:0 3px 0 #101a22;
+}
+html[data-theme="doido"] .btn.ghost:hover{background:#344d59}
+html[data-theme="doido"] .btn:active{transform:translateY(3px);box-shadow:none}
 
-/* teclado: bandeja de vidro com teclas grossas de fliperama */
+/* Teclas claras, laterais visíveis e Enter em menta. */
 html[data-theme="doido"] #keyboard{
-  background:rgba(11,2,32,.78);
-  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
-  border:1px solid var(--line);border-bottom:0;
-  border-radius:18px 18px 0 0;
-  padding-top:12px;
-  box-shadow:0 -8px 30px rgba(0,0,0,.35);
+  width:calc(100% - 32px);max-width:560px;
+  background:#1e2e38;border:1px solid #40535e;border-radius:20px;
+  padding:14px max(12px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  margin-bottom:18px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 6px 0 #0c171e,0 18px 30px rgba(0,0,0,.22);
 }
+html[data-theme="doido"] .krow{gap:6px}
 html[data-theme="doido"] .key{
-  --side:#1f0b47;
-  border-radius:9px;
-  box-shadow:0 4px 0 var(--side);
-  margin-bottom:4px;
-  transition:transform .06s ease, box-shadow .06s ease;
+  --side:#7a929e;
+  height:48px;border:1px solid rgba(255,255,255,.22);border-radius:8px;
+  background-image:linear-gradient(rgba(255,255,255,.12),transparent);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 4px 0 var(--side),0 5px 5px rgba(0,0,0,.16);
+  margin-bottom:4px;transition:transform .08s ease,box-shadow .08s ease;
 }
-html[data-theme="doido"] .key:active{transform:translateY(4px);box-shadow:0 0 0 var(--side)}
-html[data-theme="doido"] .key.correct{--side:#5f8000}
-html[data-theme="doido"] .key.present{--side:#0a7488}
-/* letra descartada: bem apagada, pra não confundir com tecla ainda não usada */
-html[data-theme="doido"] .key.absent{--side:#0f0822;background:#21183a;color:#6e6394}
-html[data-theme="doido"] .key.wide{background:linear-gradient(180deg,#ff7be0,#c22cae);--side:#6d0f61}
-@media (max-width:400px){ html[data-theme="doido"] .key{height:44px} }
+html[data-theme="doido"] .key:active{transform:translateY(4px);box-shadow:inset 0 1px 3px rgba(0,0,0,.15)}
+html[data-theme="doido"] .key.correct{--side:#4d8b70}
+html[data-theme="doido"] .key.present{--side:#527f9d}
+html[data-theme="doido"] .key.absent{--side:#111e27;background:var(--absent);border-color:#344650;color:var(--absent-ink)}
+html[data-theme="doido"] .key[data-key="↵"]{--side:#4d8b70;background-color:var(--correct);color:var(--correct-ink)}
+html[data-theme="doido"] .key[data-key="⌫"]{--side:#827c69;background-color:#d8d3c4;color:#403d33}
+html[data-theme="doido"] .key.hint{outline:2px solid var(--present);outline-offset:1px}
+html[data-theme="doido"] .tip{background:#344b58;color:#d6e3e9}
+html[data-theme="doido"] .tip::after{background:#e4eeed;color:#233b40;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+
+/* O balão abre para dentro do painel, inclusive quando os ajustes quebram linha. */
+@media (min-width:601px){
+  html[data-theme="doido"] .tip::after{left:auto;right:-6px;transform:none}
+}
+@media (max-width:600px){
+  html[data-theme="doido"] header{
+    padding:max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 12px max(12px, env(safe-area-inset-left));
+  }
+  html[data-theme="doido"] .brand::after{display:none}
+  html[data-theme="doido"] .brand span{width:24px;height:27px;font-size:18px}
+  html[data-theme="doido"] .tools{gap:4px}
+  html[data-theme="doido"] .icon-btn{min-width:34px;height:36px;padding:0 8px;font-size:12px}
+  html[data-theme="doido"] .config{width:calc(100% - 24px);margin:12px 12px 0;padding:12px;gap:12px}
+  html[data-theme="doido"] main{padding:16px 8px 22px;gap:12px}
+  html[data-theme="doido"] .mode-tabs .tab{padding:8px 12px}
+  html[data-theme="doido"] .hint-actions{gap:6px}
+  html[data-theme="doido"] .hint-actions .btn{padding:8px 9px;font-size:12px}
+  html[data-theme="doido"] #board{--gap:6px;padding:14px 12px 20px;border-radius:19px;transform:none}
+  html[data-theme="doido"] #keyboard{width:calc(100% - 16px);margin-bottom:8px;padding-top:10px;padding-left:max(7px, env(safe-area-inset-left));padding-right:max(7px, env(safe-area-inset-right));border-radius:16px}
+  html[data-theme="doido"] .krow{gap:4px}
+  html[data-theme="doido"] .key{height:46px;border-radius:6px}
+  html[data-theme="doido"] .key.wide{font-size:10px;letter-spacing:0}
+}
+@media (max-width:360px){
+  html[data-theme="doido"] header{justify-content:center;gap:10px}
+  html[data-theme="doido"] .tools{justify-content:center}
+  html[data-theme="doido"] .hint-actions .btn{padding:8px 6px;font-size:11px}
+}
 @media (max-height:480px) and (orientation:landscape){
-  html[data-theme="doido"] #board{transform:none}
-  html[data-theme="doido"] .key{height:36px}
+  html[data-theme="doido"] main{padding:12px 8px 18px;gap:8px}
+  html[data-theme="doido"] #board{padding:12px 12px 18px;transform:none}
+  html[data-theme="doido"] #keyboard{padding-top:8px;padding-bottom:max(10px, env(safe-area-inset-bottom));margin-bottom:8px}
+  html[data-theme="doido"] .key{height:34px}
 }
-html[data-theme="doido"] .tip{background:rgba(67,34,140,.8)}
-html[data-theme="doido"] .tip::after{background:#fff7ff;color:#14052b;box-shadow:0 0 0 1px var(--line),0 8px 24px rgba(0,0,0,.5)}
+@media (prefers-reduced-motion:reduce){
+  html[data-theme="doido"] #board{transform:none}
+}

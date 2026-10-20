@@ -107,6 +107,7 @@ header{
   padding:10px 12px;
 }
 .config.hidden{display:none}
+.config{position:relative;z-index:16} /* tooltip das opções passa por cima do tabuleiro */
 .field{display:flex;flex-direction:column;gap:4px}
 .field label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);font-weight:700}
 .seg{display:flex;background:var(--key);border-radius:8px;padding:3px;gap:2px}
@@ -122,8 +123,37 @@ header{
   border-radius:8px;height:32px;padding:0 8px;font-weight:600;font-size:13px;
   max-width:160px;
 }
+/* "i" ao lado das opções: explica o que cada uma faz (hover no desktop, toque no celular) */
+.tip{
+  position:relative;flex:none;
+  width:18px;height:18px;padding:0;border:0;border-radius:50%;
+  background:var(--key);color:var(--ink-soft);
+  font:700 11px/18px Georgia,serif;font-style:italic;text-align:center;
+}
+.tip:hover,.tip:focus{background:var(--present);color:var(--present-ink)}
+.tip::after{
+  content:attr(data-tip);
+  position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);
+  width:max-content;max-width:min(250px, 70vw);
+  background:var(--ink);color:var(--bg);
+  padding:8px 11px;border-radius:8px;
+  font:500 12.5px/1.4 "Space Grotesk",system-ui,sans-serif;font-style:normal;text-align:left;
+  box-shadow:0 6px 18px rgba(0,0,0,.25);
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .15s ease;
+  z-index:40;
+}
+.tip.end::after{left:auto;right:-6px;transform:none}
+.tip:hover::after,.tip:focus::after{opacity:1;visibility:visible}
+/* no celular as opções quebram em várias linhas: o balão sai logo abaixo do
+   painel de ajustes, ocupando a largura toda, pra nunca vazar pela borda */
+@media (max-width:600px){
+  .tip{position:static}
+  .tip::after,.tip.end::after{left:12px;right:12px;top:calc(100% + 6px);transform:none;width:auto;max-width:none}
+}
 .field.locked{opacity:.45;pointer-events:none}
 .check.locked{opacity:.45;pointer-events:none}
+.check.locked .tip{pointer-events:auto} /* explicação continua acessível durante o duelo */
 
 /* ---------- abas de modo (diário / infinito) ---------- */
 .mode-tabs{display:flex;justify-content:center;gap:6px;background:var(--key);border-radius:10px;padding:3px}
@@ -373,199 +403,221 @@ main{
 
 /* =========================================================
    VISUAL DOIDO 3D (data-theme="doido")
-   synthwave neon: céu roxo, sol listrado, chão quadriculado andando,
-   tabuleiro inclinado em perspectiva, casinhas e teclas com volume
+   synthwave neon: céu roxo, sol listrado e chão quadriculado bem ao fundo
+   (apagadinhos, pra não brigar com o jogo), tabuleiro levemente inclinado
+   em perspectiva, casinhas e teclas com volume
    ========================================================= */
-@property --sway{syntax:'<angle>';inherits:false;initial-value:0deg}
 @property --tx{syntax:'<angle>';inherits:false;initial-value:0deg}
 @property --ty{syntax:'<angle>';inherits:false;initial-value:0deg}
 html[data-theme="doido"]{
-  --bg:#1b0638;
-  --panel:rgba(30,10,64,.62);
+  --bg:#14052b;
+  --panel:rgba(26,9,56,.78);
   --ink:#fff7ff;
-  --ink-soft:#d4b8ff;
-  --line:rgba(255,92,214,.45);
-  --tile-empty:rgba(40,14,86,.78);
-  --tile-border:#7b3fe4;
+  --ink-soft:#cbb4f5;
+  --line:rgba(190,120,255,.32);
+  --tile-empty:rgba(24,8,52,.88);
+  --tile-border:rgba(160,110,255,.45);
   --tile-typed:#ff5cd6;
-  --correct:#c6ff1a;
-  --correct-ink:#1b0638;
+  --correct:#b6f400;
+  --correct-ink:#14052b;
   --present:#2ee6ff;
-  --present-ink:#1b0638;
-  --absent:#4a3a7a;
-  --absent-ink:#b7a6e6;
-  --key:#3a1a78;
+  --present-ink:#14052b;
+  --absent:#2c2248;
+  --absent-ink:#8a7db3;
+  --key:#43228c;
   --key-ink:#fff7ff;
   --radius:12px;
-  --side:#2a0d5c;           /* "lateral" (volume) da casinha/tecla */
+  --side:#24104f;           /* "lateral" (volume) da casinha/tecla */
   /* o céu fica no html e o body fica transparente: senão o fundo do body
      cobre o sol e o chão (::before/::after com z-index negativo) */
-  background:
-    radial-gradient(ellipse at 50% 120%, rgba(255,92,214,.35), transparent 60%),
-    linear-gradient(180deg,#0d0221 0%,#2b0b5e 45%,#6a1b7a 72%,#ff5cd6 100%) fixed #1b0638;
+  background:linear-gradient(180deg,#0b0220 0%,#1d0748 40%,#3d0f63 70%,#6b1a6e 100%) fixed #14052b;
 }
 html[data-theme="doido"] body{background:transparent}
-/* sol listrado no horizonte */
+/* sol listrado no horizonte, discreto */
 html[data-theme="doido"] body::before{
   content:"";position:fixed;z-index:-2;pointer-events:none;
-  left:50%;top:38vh;width:min(70vw,460px);aspect-ratio:1;transform:translateX(-50%);
-  border-radius:50%;
+  left:50%;bottom:30vh;width:min(80vw,520px);aspect-ratio:2/1;transform:translateX(-50%);
+  border-radius:999px 999px 0 0;
   background:
-    repeating-linear-gradient(180deg,transparent 0 58%,rgba(27,6,56,.9) 58% 62%,transparent 62% 70%),
-    linear-gradient(180deg,#fff36b 0%,#ff9a3c 45%,#ff2e88 100%);
-  -webkit-mask:linear-gradient(180deg,#000 0 55%,transparent 55.1%);
-          mask:linear-gradient(180deg,#000 0 55%,transparent 55.1%);
-  filter:drop-shadow(0 0 40px rgba(255,46,136,.8));
+    repeating-linear-gradient(180deg,transparent 0 14px,rgba(20,5,43,.85) 14px 18px),
+    linear-gradient(180deg,#ffe66b 0%,#ff8a4c 50%,#ff3d9a 100%);
+  opacity:.38;
+  filter:blur(.5px) drop-shadow(0 0 30px rgba(255,61,154,.6));
 }
-/* chão quadriculado em perspectiva, andando em direção à tela */
+/* chão quadriculado em perspectiva, andando devagar em direção à tela */
 html[data-theme="doido"] body::after{
   content:"";position:fixed;z-index:-1;pointer-events:none;
-  left:-50%;right:-50%;bottom:-10vh;height:62vh;
+  left:-50%;right:-50%;bottom:0;height:30vh;
   background:
-    linear-gradient(90deg,rgba(255,92,214,.75) 2px,transparent 2px) 0 0/60px 60px,
-    linear-gradient(0deg,rgba(255,92,214,.75) 2px,transparent 2px) 0 0/60px 60px,
-    linear-gradient(180deg,rgba(13,2,33,.95),rgba(43,11,94,.9));
-  transform:perspective(320px) rotateX(62deg);
+    linear-gradient(90deg,rgba(255,92,214,.32) 1px,transparent 1px) 0 0/56px 56px,
+    linear-gradient(0deg,rgba(255,92,214,.32) 1px,transparent 1px) 0 0/56px 56px,
+    linear-gradient(180deg,#1a0640,#2a0a52);
+  transform:perspective(260px) rotateX(55deg);
   transform-origin:50% 0;
-  animation:gridrun 1.6s linear infinite;
-  -webkit-mask:linear-gradient(180deg,transparent,#000 35%);
-          mask:linear-gradient(180deg,transparent,#000 35%);
+  animation:gridrun 3s linear infinite;
+  -webkit-mask:linear-gradient(180deg,transparent,#000 40%);
+          mask:linear-gradient(180deg,transparent,#000 40%);
 }
-@keyframes gridrun{to{background-position:0 60px,0 60px,0 0}}
+@keyframes gridrun{to{background-position:0 56px,0 56px,0 0}}
 
-/* topo, ajustes e painéis viram vidro neon */
+/* topo, ajustes e painéis viram vidro escuro */
 html[data-theme="doido"] header,
 html[data-theme="doido"] .config{
-  background:rgba(13,2,33,.55);
+  background:rgba(11,2,32,.7);
   -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
   border-bottom:1px solid var(--line);
-  box-shadow:0 1px 0 rgba(46,230,255,.25);
 }
-html[data-theme="doido"] .brand{perspective:300px;gap:6px}
+html[data-theme="doido"] .brand{perspective:300px;gap:5px}
 html[data-theme="doido"] .brand span{
-  font-family:"Bungee","Bricolage Grotesque",sans-serif;font-weight:400;
+  font-family:"Bungee","Bricolage Grotesque",sans-serif;font-weight:400;font-size:17px;
   border-radius:7px;
-  box-shadow:0 4px 0 var(--side),0 6px 12px rgba(0,0,0,.5),0 0 14px rgba(255,92,214,.5);
-  animation:brandflip .5s ease both, brandspin 4s ease-in-out infinite;
+  box-shadow:0 3px 0 var(--side),0 0 12px rgba(255,92,214,.35);
+  animation:brandflip .5s ease both, brandspin 6s ease-in-out infinite;
 }
-html[data-theme="doido"] .brand span:nth-child(1){background:#ff5cd6;color:#1b0638;animation-delay:.05s,.2s}
+html[data-theme="doido"] .brand span:nth-child(1){background:#ff5cd6;color:#14052b;animation-delay:.05s,.2s}
 html[data-theme="doido"] .brand span:nth-child(2){animation-delay:.15s,.5s}
-html[data-theme="doido"] .brand span:nth-child(3){background:#fff36b;color:#1b0638;animation-delay:.25s,.8s}
+html[data-theme="doido"] .brand span:nth-child(3){background:#ffe66b;color:#14052b;animation-delay:.25s,.8s}
 html[data-theme="doido"] .brand span:nth-child(4){animation-delay:.35s,1.1s}
-@keyframes brandspin{0%,70%,100%{transform:none}80%{transform:rotateY(180deg) translateY(-3px)}90%{transform:rotateY(360deg)}}
+@keyframes brandspin{0%,80%,100%{transform:none}90%{transform:rotateY(360deg)}}
 html[data-theme="doido"] .icon-btn{
-  background:rgba(58,26,120,.6);border-color:var(--line);
+  background:rgba(67,34,140,.55);border-color:var(--line);
   box-shadow:0 3px 0 var(--side);
-  transition:transform .08s ease, box-shadow .08s ease;
+  transition:transform .08s ease, box-shadow .08s ease, background .15s ease;
 }
-html[data-theme="doido"] .icon-btn:hover{background:#4d2398}
+html[data-theme="doido"] .icon-btn:hover{background:#55309f}
 html[data-theme="doido"] .icon-btn:active{transform:translateY(3px);box-shadow:0 0 0 var(--side)}
-html[data-theme="doido"] #selTheme{background:var(--key);border-color:var(--line)}
-html[data-theme="doido"] .seg{background:rgba(13,2,33,.6)}
-html[data-theme="doido"] .seg button[aria-pressed="true"]{box-shadow:0 3px 0 #6f9100,0 0 12px rgba(198,255,26,.6)}
-html[data-theme="doido"] .mode-tabs{background:rgba(13,2,33,.6);box-shadow:0 0 0 1px var(--line),0 0 22px rgba(255,92,214,.3)}
+html[data-theme="doido"] #selTheme{background:#2a1260;border-color:var(--line)}
+html[data-theme="doido"] .seg{background:rgba(11,2,32,.65);box-shadow:0 0 0 1px var(--line) inset}
+html[data-theme="doido"] .seg button[aria-pressed="true"]{box-shadow:0 3px 0 #5f8000}
+html[data-theme="doido"] .check input{accent-color:var(--correct)}
+html[data-theme="doido"] .mode-tabs{background:rgba(11,2,32,.65);box-shadow:0 0 0 1px var(--line)}
+html[data-theme="doido"] .mode-tabs .tab{opacity:.75}
 html[data-theme="doido"] .mode-tabs .tab[aria-pressed="true"]{
+  opacity:1;
   background:linear-gradient(180deg,#ff7be0,#c22cae);color:#fff;
-  box-shadow:0 3px 0 #6d0f61,0 0 16px rgba(255,92,214,.7);
+  box-shadow:0 3px 0 #6d0f61,0 0 14px rgba(255,92,214,.5);
 }
 
-/* tabuleiro inclinado: balança sozinho e segue o mouse (--tx/--ty via script) */
-html[data-theme="doido"] main{perspective:1000px}
+/* tabuleiro levemente inclinado; segue o mouse de leve (--tx/--ty via script) */
+html[data-theme="doido"] main{perspective:1100px}
 html[data-theme="doido"] #board{
   --gap:8px;
-  transform:rotateX(calc(18deg + var(--ty,0deg))) rotateY(calc(var(--tx,0deg) + var(--sway)));
-  transition:--tx .3s ease-out, --ty .3s ease-out;
-  animation:sway 6s ease-in-out infinite;
-  padding:10px 4px 18px;
-  filter:drop-shadow(0 18px 24px rgba(13,2,33,.7));
+  transform:rotateX(calc(9deg + var(--ty,0deg))) rotateY(var(--tx,0deg));
+  transition:--tx .4s ease-out, --ty .4s ease-out;
+  padding:6px 4px 14px;
 }
-@keyframes sway{0%,100%{--sway:-4deg}50%{--sway:4deg}}
 html[data-theme="doido"] .tile{
-  --side:#22094d;
+  --side:#170638;
   font-family:"Bungee","Space Grotesk",sans-serif;font-weight:400;
-  font-size:calc(var(--tile) * .46);
+  font-size:calc(var(--tile) * .44);
   border-width:2px;
-  box-shadow:0 6px 0 var(--side),0 10px 14px rgba(0,0,0,.45);
-  text-shadow:0 2px 0 rgba(0,0,0,.25);
+  box-shadow:0 5px 0 var(--side),0 8px 12px rgba(0,0,0,.35);
 }
-html[data-theme="doido"] .tile.filled{border-color:var(--tile-typed);box-shadow:0 6px 0 #8a1f73,0 0 14px rgba(255,92,214,.55);animation:pop3d .16s ease}
-@keyframes pop3d{0%{transform:translateY(-8px) scale(1.15)}100%{transform:none}}
+/* letra digitada, ainda não avaliada */
+html[data-theme="doido"] .tile.filled{
+  border-color:var(--tile-typed);
+  box-shadow:0 5px 0 #7d1a69,0 0 12px rgba(255,92,214,.45);
+  animation:pop3d .16s ease;
+}
+@keyframes pop3d{0%{transform:translateY(-6px) scale(1.1)}100%{transform:none}}
+/* casinhas avaliadas: precisam vir depois de .filled (mesma especificidade),
+   senão a borda/brilho rosa da letra digitada fica por cima da cor do resultado */
 html[data-theme="doido"] .tile.correct,
-html[data-theme="doido"] .tile.locked{--side:#6f9100;box-shadow:0 6px 0 var(--side),0 0 18px rgba(198,255,26,.55)}
-html[data-theme="doido"] .tile.present{--side:#0a7d93;box-shadow:0 6px 0 var(--side),0 0 18px rgba(46,230,255,.5)}
-html[data-theme="doido"] .tile.absent{--side:#251a45;box-shadow:0 6px 0 var(--side),0 8px 10px rgba(0,0,0,.4)}
-html[data-theme="doido"] .tile.active{border-color:var(--present);box-shadow:0 6px 0 #0a7d93,0 0 0 2px var(--present) inset,0 0 18px rgba(46,230,255,.6)}
+html[data-theme="doido"] .tile.locked{
+  --side:#5f8000;
+  background:var(--correct);border-color:var(--correct);color:var(--correct-ink);
+  box-shadow:0 5px 0 var(--side),0 0 16px rgba(182,244,0,.45);
+}
+html[data-theme="doido"] .tile.present{
+  --side:#0a7488;
+  background:var(--present);border-color:var(--present);color:var(--present-ink);
+  box-shadow:0 5px 0 var(--side),0 0 16px rgba(46,230,255,.4);
+}
+html[data-theme="doido"] .tile.absent{
+  --side:#150c2a;
+  background:var(--absent);border-color:var(--absent);color:var(--absent-ink);
+  box-shadow:0 5px 0 var(--side),0 6px 8px rgba(0,0,0,.35);
+}
+html[data-theme="doido"] .tile.active{
+  border-color:var(--present);
+  box-shadow:0 5px 0 #0a7488,0 0 0 2px var(--present) inset,0 0 14px rgba(46,230,255,.5);
+}
+html[data-theme="doido"] .tile.ghost{color:#c9a6ff;opacity:.55}
 html[data-theme="doido"] .tile.reveal{animation:flip3d .5s ease forwards}
 /* a cor troca no meio (250ms), quando a casinha está de lado */
 @keyframes flip3d{
   0%{transform:none}
-  49%,50%{transform:translateY(-14px) rotateX(90deg) rotateZ(8deg) scale(1.15)}
+  49%,50%{transform:translateY(-10px) rotateX(90deg)}
   100%{transform:none}
 }
-html[data-theme="doido"] .row.win .tile{animation:jump3d .8s ease}
+html[data-theme="doido"] .row.win .tile{animation:jump3d .7s ease}
 @keyframes jump3d{
   0%,100%{transform:none}
-  40%{transform:translateY(-34px) rotateY(180deg) scale(1.15)}
-  70%{transform:translateY(4px) rotateY(360deg)}
+  40%{transform:translateY(-26px) rotateX(360deg) scale(1.1)}
+  70%{transform:translateY(3px)}
 }
-html[data-theme="doido"] .tile.ghost{color:#b98cff}
 
 /* painéis de vidro */
 html[data-theme="doido"] .hintbar,
 html[data-theme="doido"] .endbar,
 html[data-theme="doido"] #blitzBar,
 html[data-theme="doido"] .sheet-card{
-  background:rgba(30,10,64,.72);
+  background:rgba(26,9,56,.85);
   -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
   border:1px solid var(--line);
-  box-shadow:0 0 0 1px rgba(46,230,255,.15) inset,0 10px 30px rgba(0,0,0,.45),0 0 30px rgba(255,92,214,.25);
+  box-shadow:0 10px 30px rgba(0,0,0,.45),0 0 24px rgba(255,92,214,.18);
 }
 html[data-theme="doido"] .hintbar{border-left:4px solid var(--present)}
 html[data-theme="doido"] .endbar .word{
-  font-family:"Bungee",sans-serif;font-weight:400;font-size:28px;color:#fff36b;
-  text-shadow:0 1px 0 #ff9a3c,0 2px 0 #ff5cd6,0 3px 0 #c22cae,0 4px 0 #6d0f61,0 6px 10px rgba(0,0,0,.6);
-  animation:wordwobble 2.4s ease-in-out infinite;
+  font-family:"Bungee",sans-serif;font-weight:400;font-size:28px;color:#ffe66b;
+  text-shadow:0 2px 0 #ff5cd6,0 4px 0 #6d0f61,0 6px 12px rgba(0,0,0,.5);
 }
-@keyframes wordwobble{50%{transform:rotate(-3deg) scale(1.06)}}
-html[data-theme="doido"] .sheet-card h2{font-family:"Bungee",sans-serif;font-weight:400;color:#fff36b;text-shadow:0 3px 0 #c22cae}
-html[data-theme="doido"] .sheet{background:rgba(13,2,33,.6)}
-html[data-theme="doido"] .msg{background:#fff36b;color:#1b0638;box-shadow:0 4px 0 #c27b00,0 0 20px rgba(255,243,107,.6)}
-html[data-theme="doido"] #blitzBar .clock{font-family:"Bungee",sans-serif;font-weight:400;color:#fff36b}
+html[data-theme="doido"] .sheet-card h2{font-family:"Bungee",sans-serif;font-weight:400;color:#ffe66b;text-shadow:0 3px 0 #c22cae}
+html[data-theme="doido"] .sheet{background:rgba(8,1,22,.7)}
+html[data-theme="doido"] .msg{background:#ffe66b;color:#14052b;box-shadow:0 4px 0 #b86f00,0 0 18px rgba(255,230,107,.5)}
+html[data-theme="doido"] #blitzBar .clock{font-family:"Bungee",sans-serif;font-weight:400;color:#ffe66b}
 html[data-theme="doido"] #blitzBar .fill{height:5px;box-shadow:0 0 12px var(--correct)}
 html[data-theme="doido"] #blitzBar.urgent .clock{color:#ff4d6d}
 html[data-theme="doido"] .trail span,
 html[data-theme="doido"] .records li,
 html[data-theme="doido"] .stat,
-html[data-theme="doido"] .badge{background:rgba(58,26,120,.7)}
+html[data-theme="doido"] .badge{background:rgba(67,34,140,.55)}
 html[data-theme="doido"] .records li.me{background:var(--correct)}
 
 /* botões com volume, afundam ao clicar */
 html[data-theme="doido"] .btn{
-  box-shadow:0 4px 0 #6f9100,0 0 14px rgba(198,255,26,.4);
+  box-shadow:0 4px 0 #5f8000;
   transition:transform .08s ease, box-shadow .08s ease;
 }
-html[data-theme="doido"] .btn.ghost{background:var(--key);box-shadow:0 4px 0 var(--side),0 0 0 1px var(--line) inset}
+html[data-theme="doido"] .btn.ghost{background:rgba(67,34,140,.6);box-shadow:0 4px 0 var(--side),0 0 0 1px var(--line) inset}
 html[data-theme="doido"] .btn:active{transform:translateY(4px);box-shadow:0 0 0 transparent}
 
-/* teclado: teclas grossas de fliperama */
+/* teclado: bandeja de vidro com teclas grossas de fliperama */
 html[data-theme="doido"] #keyboard{
-  background:linear-gradient(180deg,rgba(13,2,33,0),rgba(13,2,33,.85) 18%);
-  padding-top:16px;
+  background:rgba(11,2,32,.78);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  border:1px solid var(--line);border-bottom:0;
+  border-radius:18px 18px 0 0;
+  padding-top:12px;
+  box-shadow:0 -8px 30px rgba(0,0,0,.35);
 }
 html[data-theme="doido"] .key{
-  --side:#1f0a47;
+  --side:#1f0b47;
   border-radius:9px;
-  box-shadow:0 5px 0 var(--side),0 7px 10px rgba(0,0,0,.45);
-  border-top:1px solid rgba(255,255,255,.15);
-  margin-bottom:5px;
+  box-shadow:0 4px 0 var(--side);
+  margin-bottom:4px;
   transition:transform .06s ease, box-shadow .06s ease;
 }
-html[data-theme="doido"] .key:active{transform:translateY(5px);box-shadow:0 0 0 var(--side),0 2px 4px rgba(0,0,0,.4)}
-html[data-theme="doido"] .key.correct{--side:#6f9100}
-html[data-theme="doido"] .key.present{--side:#0a7d93}
-html[data-theme="doido"] .key.absent{--side:#251a45}
+html[data-theme="doido"] .key:active{transform:translateY(4px);box-shadow:0 0 0 var(--side)}
+html[data-theme="doido"] .key.correct{--side:#5f8000}
+html[data-theme="doido"] .key.present{--side:#0a7488}
+/* letra descartada: bem apagada, pra não confundir com tecla ainda não usada */
+html[data-theme="doido"] .key.absent{--side:#0f0822;background:#21183a;color:#6e6394}
 html[data-theme="doido"] .key.wide{background:linear-gradient(180deg,#ff7be0,#c22cae);--side:#6d0f61}
 @media (max-width:400px){ html[data-theme="doido"] .key{height:44px} }
 @media (max-height:480px) and (orientation:landscape){
-  html[data-theme="doido"] #board{transform:rotateX(10deg) rotateY(var(--tx,0deg))}
+  html[data-theme="doido"] #board{transform:none}
+  html[data-theme="doido"] .key{height:36px}
 }
+html[data-theme="doido"] .tip{background:rgba(67,34,140,.8)}
+html[data-theme="doido"] .tip::after{background:#fff7ff;color:#14052b;box-shadow:0 0 0 1px var(--line),0 8px 24px rgba(0,0,0,.5)}

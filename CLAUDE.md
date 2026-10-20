@@ -54,7 +54,10 @@ jogo, painéis/tema, início). Pontos importantes:
   senão o acento some da tela mesmo a letra estando correta.
 - **`state.locked`**: conjunto de posições travadas (verde-limão) que foram
   carregadas automaticamente para a próxima linha porque já foram acertadas em
-  alguma tentativa anterior. Casinhas travadas nunca devem ser editáveis nem
+  alguma tentativa anterior. **Só no modo difícil** — fora dele a linha começa
+  livre e as verdes já descobertas aparecem só como lembrete apagado (ghost,
+  calculado em `renderCurrent()`); travar sempre deixava o modo normal igual ao
+  difícil. Desligar o modo difícil no meio da partida limpa `state.locked`. Casinhas travadas nunca devem ser editáveis nem
   apagáveis — qualquer mudança em `press()`/`renderCurrent()` que mexa em
   cursor ou backspace precisa preservar essa invariante, incluindo o caso de
   borda em que a **última** casinha da linha é a travada.
@@ -168,6 +171,14 @@ jogo, painéis/tema, início). Pontos importantes:
   se o dia virar com a tela aberta, chama `enterDaily()`.
 - No diário, Enter depois do fim **não** sorteia outra palavra (`press()` só
   reinicia no infinito/relâmpago).
+- **Tooltips** (`.tip`, botão "i" com `data-tip`): explicam "Dicas no fim" e
+  "Modo difícil" nos Ajustes (CSS puro, hover/foco; no celular o balão sai
+  abaixo do painel, largura toda). Ficam dentro do `<label>` mas, por serem
+  `<button>`, clicar neles não marca/desmarca a caixa. Abas de modo e botões
+  de ação usam `title` simples.
+- **Visual doido 3D**: as regras de `.tile.correct/.present/.absent` no tema
+  precisam vir **depois** de `.tile.filled` (mesma especificidade), senão a
+  borda rosa da letra digitada fica por cima da cor do resultado.
 - **Confete** (`confetti()`): canvas temporário na vitória e no recorde do
   relâmpago; ignorado com `prefers-reduced-motion`.
 

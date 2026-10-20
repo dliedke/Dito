@@ -559,9 +559,13 @@ document.addEventListener('keydown', e=>{
 function renderCurrent(){
   const row = board.children[state.row];
   if(!row) return;
+  // fora do modo difícil as verdes já descobertas não são travadas: aparecem
+  // como lembrete apagadinho (igual à dica de posição) até o jogador digitar
+  const known = {};
+  if(!state.hard) state.rows.forEach(r=>r.res.forEach((v,i)=>{ if(v==='correct') known[i] = state.answerRaw[i].toUpperCase(); }));
   [...row.children].forEach((tile,i)=>{
     const ch = state.cur[i];
-    const ghost = state.ghosts[i];
+    const ghost = state.ghosts[i] || known[i];
     const locked = state.locked.has(i);
     // travada (verde-limão): mostra sempre a letra com acento/til da resposta.
     // state.cur guarda a letra sem acento (é o que é comparado com o dicionário),
@@ -669,11 +673,14 @@ function submit(){
       finish(false);
     }, delay);
   } else {
-    // leva pra próxima linha as letras verde-limão (posição confirmada) já
-    // descobertas em qualquer tentativa anterior, travadas nas posições certas
+    // modo difícil: leva pra próxima linha as letras verde-limão (posição
+    // confirmada) já descobertas em qualquer tentativa anterior, travadas nas
+    // posições certas. Fora dele a linha começa livre (as verdes só aparecem
+    // apagadinhas como lembrete, ver renderCurrent) — travar sempre deixava o
+    // jogo normal igual ao difícil
     const nextCur = Array(state.len).fill('');
     const nextLocked = new Set();
-    state.rows.forEach(r=>{
+    if(state.hard) state.rows.forEach(r=>{
       r.res.forEach((v,i)=>{ if(v==='correct'){ nextCur[i] = r.guess[i]; nextLocked.add(i); } });
     });
     state.cur = nextCur;
@@ -1255,7 +1262,7 @@ document.getElementById('btnConfig').onclick=()=>{
 if(window.matchMedia('(max-width:600px)').matches) setConfigOpen(false);
 // visuais: claro → escuro → doido (3D neon) → claro...
 const THEMES = ['light','dark','doido'];
-const THEME_COLOR = {light:'#f2f3f5', dark:'#101216', doido:'#1b0638'};
+const THEME_COLOR = {light:'#f2f3f5', dark:'#101216', doido:'#0b0220'};
 function updateThemeColor(){
   const t = document.documentElement.dataset.theme || 'light';
   const meta = document.getElementById('metaTheme');
@@ -1263,7 +1270,7 @@ function updateThemeColor(){
   // o botão mostra qual é o próximo visual
   const next = THEMES[(THEMES.indexOf(t)+1) % THEMES.length];
   const btn = document.getElementById('btnTheme');
-  btn.textContent = next==='doido' ? '🌀' : '◐';
+  btn.textContent = next==='doido' ? '🌀' : next==='dark' ? '🌙' : '☀️';
   btn.title = next==='doido' ? 'Visual doido 3D' : next==='dark' ? 'Visual escuro' : 'Visual claro';
   if(t!=='doido'){ board.style.removeProperty('--tx'); board.style.removeProperty('--ty'); }
 }
@@ -1274,13 +1281,13 @@ document.getElementById('btnTheme').onclick=()=>{
   updateThemeColor();
   saveSettings();
 };
-// visual doido: o tabuleiro 3D inclina seguindo o mouse (no celular ele só balança sozinho)
+// visual doido: o tabuleiro 3D inclina de leve seguindo o mouse (no celular fica parado)
 document.addEventListener('pointermove', e=>{
   if(e.pointerType!=='mouse' || document.documentElement.dataset.theme!=='doido') return;
   if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const x = e.clientX/window.innerWidth - .5, y = e.clientY/window.innerHeight - .5;
-  board.style.setProperty('--tx', (x*16).toFixed(1)+'deg');
-  board.style.setProperty('--ty', (-y*10).toFixed(1)+'deg');
+  board.style.setProperty('--tx', (x*10).toFixed(1)+'deg');
+  board.style.setProperty('--ty', (-y*6).toFixed(1)+'deg');
 });
 document.getElementById('btnSound').onclick=e=>{
   state.sound = !state.sound;
@@ -1297,7 +1304,10 @@ document.getElementById('optHints').onchange=e=>{
 };
 document.getElementById('optHard').onchange=e=>{
   if(e.target.checked && state.row>0){ e.target.checked=false; return say('Ative o modo difícil no início da partida'); }
-  state.hard=e.target.checked; saveSettings();
+  state.hard=e.target.checked;
+  // desligou no meio da partida: destrava as verdes que já estavam na linha atual
+  if(!state.hard && state.locked.size){ state.locked = new Set(); renderCurrent(); }
+  saveSettings();
 };
 document.getElementById('tabDaily').onclick=()=>setMode('daily');
 document.getElementById('tabFree').onclick=()=>setMode('free');

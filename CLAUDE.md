@@ -98,8 +98,8 @@ jogo, painéis/tema, início). Pontos importantes:
   no hash `#w=`). Todo `onclick` que chama `newGame` direto precisa ser
   `()=>newGame()`, nunca `newGame` cru — o handler de clique passaria o
   `MouseEvent` como `forcedKey` e corromperia a resposta.
-- **Modo diário**: só uma partida por dia; o resultado (`rows`, `status`,
-  `answerRaw`) fica em `store['dito:daily']` chaveado pela data local
+- **Modo diário**: só uma partida por dia; o resultado fica em `dailyHist`
+  (ver "Diário — histórico e arquivo" abaixo), chaveado pela data local
   (`todayStr()`). Reabrir o jogo no mesmo dia cai em `showDailyDone()`, que
   reconstrói o tabuleiro a partir do resultado salvo sem permitir novo palpite
   (sem botão "Jogar de novo"). `setMode()` troca entre diário/infinito e guarda
@@ -131,9 +131,9 @@ jogo, painéis/tema, início). Pontos importantes:
   e ao abandonar a partida pelo botão "novo jogo" (`startFresh()`).
 - **Botão "🔄 Novo jogo"** (`startFresh()`): abandona a partida atual e sorteia
   outra a qualquer momento, reaproveitando a invalidação de `setTimeout`s via
-  `state.gameId` (não precisa esperar o fim da rodada). Desabilitado no modo
-  diário (`updateNewGameBtn()`, chamado de dentro de `buildSegments()`) porque
-  só há uma tentativa por dia; se a partida abandonada era um duelo, chama
+  `state.gameId` (não precisa esperar o fim da rodada). No modo diário vira
+  "📚 Arquivo" (`updatePlayActionBtns()`, chamado de dentro de
+  `buildSegments()`), porque só há uma tentativa por dia; se a partida abandonada era um duelo, chama
   `endDuel()` antes de sortear a próxima.
 
 - **Modo relâmpago** (`state.mode==='blitz'`, aba "⚡ Relâmpago"): contra o
@@ -181,6 +181,48 @@ jogo, painéis/tema, início). Pontos importantes:
   borda rosa da letra digitada fica por cima da cor do resultado.
 - **Confete** (`confetti()`): canvas temporário na vitória e no recorde do
   relâmpago; ignorado com `prefers-reduced-motion`.
+
+- **Variações** (`state.variant`, aba "🎲 Variações" → `#sheetVariant`): vivem
+  **dentro** do infinito (`state.mode` continua `'free'`), descritas na tabela
+  `VARIANTS` (`normal`, `duo`, `quad`, `cheat`, `chain`, `sudden`, `pass`).
+  `variant()` devolve `'normal'` fora do infinito. Variações com `tries` fixo
+  travam o campo de tentativas e guardam a escolha do jogador em
+  `state.varSavedTries`; as com `noAssist` ignoram dicas/modo difícil via
+  `hintsOn()`/`hardOn()`/`noAssist()` — **usar esses helpers**, nunca
+  `state.hints`/`state.hard` direto, senão a preferência vaza pra variação.
+  Desafiar só existe na variação normal. Duelo recebido volta pra `normal`.
+  - **Dueto/Quarteto**: `state.multi = {keys,raws,res,solved,solvedAt,cols}`;
+    `submitMulti()` avalia o palpite em cada tabuleiro aberto (`.mini[data-b]`
+    dentro de `#board.multi`); `curTargets()` diz em quais linhas o palpite
+    atual é desenhado. Teclas com estados diferentes por tabuleiro ganham
+    `.split` + gradiente (`splitKeyBg()`), na mesma disposição dos tabuleiros.
+    `sizeMultiBoard()` ajusta `--tile` e colunas no resize.
+  - **Trapaceiro**: `cheatDodge(g)` troca `state.answer` **antes** de avaliar,
+    ficando com o maior grupo de `state.cheat.cands` por assinatura de cores;
+    o resto do fluxo é o normal.
+  - **Corrente/Morte súbita/Passa-e-joga**: estado da sequência em `state.run`
+    (`initRun()`, `updateRun()` no `finish()`, `#varBar` via `renderVarBar()`);
+    recordes em `runs` (`store['dito:runs']`), gravados já no acerto.
+    Abandonar corrente/morte súbita com "Novo jogo" quebra a sequência.
+- **Diário — histórico e arquivo**: `dailyHist` (`store['dito:dailyHist']`,
+  `{data:{s,g:[palpites],a?}}`, `a` = jogado pelo arquivo) substituiu o antigo
+  `dito:daily` (migrado no init). As cores são recalculadas de
+  `dailyAnswerKey(data)`, não salvas. `enterDaily(data)` joga/revê qualquer dia
+  desde `DAILY_START`; `state.dailyDate` diz qual. No diário, "Novo jogo" vira
+  "📚 Arquivo" (`openArchive()`). `dailyStreak()` ignora jogos do arquivo.
+  `heatmapHTML()` (Placar) e o calendário do arquivo usam `.day[data-date]`,
+  tratados por um único listener global de clique.
+- **XP/níveis e missões** (botão "🎯 Nv N", `#sheetProfile`): `xpTotal`
+  (`dito:xp`), `xpForGame()`/`gainXP()`, `levelOf()` + `TITLES`. Missões do
+  dia (`dailyMissions(data)`, PRNG com seed na data, `dito:missions`) avançam
+  por `reportMission(evento)`, chamado em `finish()` e `endBlitz()`.
+- **Fim de jogo**: `winMessage()`/`loseMessage()` (frases com personalidade),
+  links pro Dicio (`dictLinksHTML`), linha de XP e "🖼️ Imagem"
+  (`shareImage()`: canvas → Web Share → clipboard → download).
+- **Vibração**: `buzz(padrão)`, respeita `state.vibe` (opção some sem
+  `navigator.vibrate`).
+- **Relâmpago com tema**: o tema dos Ajustes vale no relâmpago; temas com
+  menos de `BLITZ_MIN_THEME` palavras de 5 letras ficam desativados no select.
 
 - **Layout no celular**: `#keyboard` é `position:sticky; bottom:0` (por isso
   `html,body` usam `min-height`, não `height`), então fica sempre visível

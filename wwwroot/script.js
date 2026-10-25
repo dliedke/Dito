@@ -117,7 +117,13 @@ const state = {
   gameId:0,
   duel:false, // partida vinda de um link de desafio: dicas/modo difícil travados no valor de quem criou
   blitz:null, // rodada do modo relâmpago: {score, deadline, timer, lastTick, over}
-  trail:null  // palavras ainda possíveis depois de cada palpite (análise do fim de jogo)
+  trail:null, // palavras ainda possíveis depois de cada palpite (análise do fim de jogo)
+  variant:'normal', // variação do infinito (ver VARIANTS)
+  multi:null, // dueto/quarteto: {keys, raws, res:[[...]], solved:[bool], solvedAt:[n]}
+  cheat:null, // trapaceiro: {cands} — palavras que ainda batem com todas as pistas
+  run:null,   // sequência da variação: corrente, morte súbita ou passa-e-joga
+  dailyDate:null, // data da palavra do dia em jogo (hoje ou um dia do arquivo)
+  vibe:true
 };
 // groups: grupos temáticos já acertados (conquista "Explorador");
 // blitzBest: campo antigo (recorde só em palavras), substituído por blitzRecords
@@ -159,6 +165,35 @@ function themePool(len, theme){
   if(!theme) return keys;
   return keys.filter(k => wordGroup[k] === theme);
 }
+
+/* =========================================================
+   VARIAÇÕES DO INFINITO — escolhidas na aba "🎲 Variações".
+   tries: tentativas fixas (calculadas pelo tamanho); noAssist: sem dicas
+   automáticas, sem dica de grupo e sem modo difícil (não fazem sentido ali)
+   ========================================================= */
+const VARIANTS = {
+  normal: {icon:'♾️', name:'Normal',       desc:'O jogo de sempre, com as letras, tentativas e tema dos Ajustes.'},
+  duo:    {icon:'🧩', name:'Dueto',        boards:2, tries:len=>len+2, noAssist:true,
+           desc:'Duas palavras ao mesmo tempo: cada palpite vale para as duas. Tentativas = letras + 2.'},
+  quad:   {icon:'🀄', name:'Quarteto',     boards:4, tries:len=>len+4, noAssist:true,
+           desc:'Quatro palavras de uma vez! Cada palpite vale para todas. Tentativas = letras + 4.'},
+  cheat:  {icon:'😈', name:'Trapaceiro',   tries:()=>7, noAssist:true,
+           desc:'O jogo não escolhe a palavra: a cada palpite ele foge, ficando com o maior grupo de palavras possíveis. Encurrale-o em 7 tentativas.'},
+  chain:  {icon:'⛓️', name:'Corrente',
+           desc:'A palavra que você acertou vira o 1º palpite da próxima. Quantos elos seguidos você consegue?'},
+  sudden: {icon:'💀', name:'Morte súbita', tries:()=>3,
+           desc:'Só 3 tentativas. Acertar na 1ª vale 500 pontos, na 2ª 250, na 3ª 100. O primeiro erro acaba a rodada.'},
+  pass:   {icon:'👥', name:'Passa-e-joga',
+           desc:'Duas pessoas no mesmo aparelho revezam os palpites no mesmo tabuleiro. Ganha quem acertar!'},
+};
+const PLAYERS = [{icon:'🟠', name:'Jogador 1'}, {icon:'🟣', name:'Jogador 2'}];
+const SUDDEN_PTS = [500, 250, 100];
+function variant(){ return state.mode==='free' ? state.variant : 'normal'; }
+function noAssist(){ return !!VARIANTS[variant()].noAssist; }
+function hintsOn(){ return state.hints && !noAssist(); }
+function hardOn(){ return state.hard && !noAssist(); }
+/* recordes da corrente e da morte súbita (localStorage 'dito:runs') */
+const runs = { chain:0, sudden:0, suddenWords:0 };
 
 /* armazenamento local (localStorage), com fallback silencioso caso indisponível */
 const store = {
@@ -215,6 +250,11 @@ const sfx = {
   tick: () => beep({freq:990, dur:.03, type:'square', vol:.04}),
   ach:  () => [784,1175].forEach((f,i)=>beep({freq:f, dur:.14, type:'triangle', vol:.14, delay:.5+i*.1})),
 };
+/* vibração no celular (Android; o Safari do iPhone não tem a API) */
+const canVibrate = typeof navigator.vibrate === 'function';
+function buzz(pattern){
+  if(state.vibe && canVibrate){ try{ navigator.vibrate(pattern); }catch(e){} }
+}
 
 /* =========================================================
    CONFIGURAÇÃO
@@ -223,6 +263,10 @@ function buildSegments(){
   // trava tamanho/tentativas/tema no diário e no relâmpago (fixos em 5/6) e num
   // duelo por link (a palavra do desafio já define esses valores, mudar quebraria o desafio)
   const lockPlay = state.mode!=='free' || state.duel;
+  // variações com tentativas fixas (dueto, quarteto, trapaceiro, morte súbita)
+  const lockTries = lockPlay || !!VARIANTS[variant()].tries;
+  // no relâmpago o tema pode mudar (o tamanho continua 5)
+  const lockTheme = state.mode==='daily' || state.duel;
   const segLen = document.getElementById('segLen');
   segLen.innerHTML='';
   for(let n=3;n<=8;n++){
@@ -238,20 +282,22 @@ function buildSegments(){
   for(let t=3;t<=8;t++){
     const b=document.createElement('button');
     b.textContent=t; b.setAttribute('aria-pressed', t===state.tries);
-    b.disabled = lockPlay;
+    b.disabled = lockTries;
     b.onclick=()=>{ state.tries=t; buildSegments(); newGame(); saveSettings(); };
     segTries.appendChild(b);
   }
   document.getElementById('segLen').closest('.field').classList.toggle('locked', lockPlay);
-  document.getElementById('segTries').closest('.field').classList.toggle('locked', lockPlay);
-  document.getElementById('fieldTheme').classList.toggle('locked', lockPlay);
-  document.getElementById('selTheme').disabled = lockPlay;
+  document.getElementById('segTries').closest('.field').classList.toggle('locked', lockTries);
+  document.getElementById('fieldTheme').classList.toggle('locked', lockTheme);
+  document.getElementById('selTheme').disabled = lockTheme;
   // num duelo por link, dicas/modo difícil ficam travados
-  // com o valor de quem criou o desafio — senão os dois lados não jogam a mesma prova
+  // com o valor de quem criou o desafio — senão os dois lados não jogam a mesma prova.
+  // Nas variações sem ajuda (dueto, quarteto, trapaceiro) eles não valem.
   ['optHints','optHard'].forEach(id=>{
     const el = document.getElementById(id);
-    el.disabled = state.duel;
-    el.closest('.check').classList.toggle('locked', state.duel);
+    const off = state.duel || noAssist();
+    el.disabled = off;
+    el.closest('.check').classList.toggle('locked', off);
   });
   updatePlayActionBtns();
 }
@@ -263,18 +309,28 @@ function buildSegments(){
 function updatePlayActionBtns(){
   const bNew = document.getElementById('btnNewGame');
   if(bNew){
-    bNew.disabled = state.mode==='daily' || state.duel;
-    bNew.textContent = state.mode==='blitz' ? `⏭️ Pular (−${BLITZ_SKIP}s)` : '🔄 Novo jogo';
+    // no diário o botão vira "arquivo" (jogar dias anteriores)
+    bNew.disabled = state.duel;
+    bNew.textContent = state.mode==='blitz' ? `⏭️ Pular (−${BLITZ_SKIP}s)` : state.mode==='daily' ? '📚 Arquivo' : '🔄 Novo jogo';
+    bNew.title = state.mode==='daily' ? 'Jogue as palavras do dia que você perdeu'
+      : state.mode==='blitz' ? 'Pula esta palavra (custa tempo)' : 'Abandona esta partida e sorteia outra palavra';
   }
   const bChallenge = document.getElementById('btnChallenge');
-  if(bChallenge) bChallenge.disabled = state.mode!=='free' || state.duel;
+  if(bChallenge) bChallenge.disabled = state.mode!=='free' || state.duel || state.variant!=='normal';
 }
 /* abandona a partida atual e começa outra a qualquer momento; se estava num
    duelo por link, sai dele restaurando as configurações de antes (endDuel) */
 function startFresh(){
   if(state.mode==='blitz') return skipBlitzWord();
+  if(state.mode==='daily') return openArchive();
   if(state.mode!=='free') return;
   if(state.duel) endDuel();
+  // abandonar no meio quebra a corrente / acaba a rodada da morte súbita
+  const r = state.run;
+  if(r && state.status==='playing' && r.count>0){
+    if(r.kind==='chain'){ say(`⛓️ A corrente quebrou com ${r.count} ${r.count===1?'elo':'elos'}`, 2200); r.count = 0; r.prev = null; }
+    if(r.kind==='sudden'){ say(`💀 Rodada encerrada: ${r.pts} pts`, 2200); r.count = 0; r.pts = 0; }
+  }
   newGame();
 }
 function buildThemeSelect(){
@@ -283,11 +339,15 @@ function buildThemeSelect(){
   Object.keys(GROUP_LABEL).sort((a,b)=>GROUP_LABEL[a].localeCompare(GROUP_LABEL[b],'pt-BR')).forEach(cat=>{
     const opt=document.createElement('option');
     opt.value=cat; opt.textContent=GROUP_LABEL[cat];
+    // no relâmpago (sempre 5 letras) só entram temas com palavra suficiente
+    if(state.mode==='blitz') opt.disabled = themePool(DAILY_LEN, cat).length < BLITZ_MIN_THEME;
     sel.appendChild(opt);
   });
   sel.value = state.theme || '';
   sel.onchange = e=>{
     state.theme = e.target.value || null;
+    if(state.mode==='blitz'){ startBlitz(); return; } // tema novo = rodada nova
+
     // se o tamanho atual não tiver palavra nesse tema, pula pro tamanho válido mais próximo
     if(!themePool(state.len, state.theme).length){
       const validos = [3,4,5,6,7,8].filter(n=>themePool(n, state.theme).length);
@@ -304,10 +364,12 @@ function saveSettings(){
   const own = state.mode==='free' || state.savedLen===undefined;
   store.set('dito:settings',{
     len: own ? state.len : state.savedLen,
-    tries: own ? state.tries : state.savedTries,
+    // variações com tentativas fixas guardam as do jogador em varSavedTries
+    tries: own ? (state.varSavedTries ?? state.tries) : state.savedTries,
     wordTheme: own ? state.theme : state.savedTheme,
-    hard:state.hard,hints:state.hints,sound:state.sound,theme:document.documentElement.dataset.theme,
-    mode: state.mode==='blitz' ? 'free' : state.mode // relâmpago não volta sozinho ao recarregar
+    hard:state.hard,hints:state.hints,sound:state.sound,vibe:state.vibe,theme:document.documentElement.dataset.theme,
+    mode: state.mode==='blitz' ? 'free' : state.mode, // relâmpago não volta sozinho ao recarregar
+    variant: state.mode==='free' ? state.variant : 'normal'
   });
 }
 
@@ -316,18 +378,40 @@ function saveSettings(){
    ========================================================= */
 function newGame(forcedKey){
   state.gameId++; // invalida setTimeouts pendentes de uma partida anterior
+  if(state.mode!=='daily') state.dailyDate = null;
+  const v = variant();
+  // variações com tentativas fixas (dependem do tamanho, que pode ter mudado)
+  const vt = VARIANTS[v].tries;
+  if(vt && state.tries!==vt(state.len)){ state.tries = vt(state.len); buildSegments(); }
+  const pool = themePool(state.len, state.theme);
+  // segurança: se o tema não tiver palavra nesse tamanho, cai pro dicionário todo
+  // em vez de travar (o seletor de tema já evita chegar aqui na prática)
+  const usable = pool.length ? pool : DICT[state.len].keys;
+  const pick = list => list[Math.floor(Math.random()*list.length)];
   let key;
   if(forcedKey){
     key = forcedKey; // palavra do dia ou palavra de um desafio recebido por link
   } else {
-    const pool = themePool(state.len, state.theme);
-    // segurança: se o tema não tiver palavra nesse tamanho, cai pro dicionário todo
-    // em vez de travar (o seletor de tema já evita chegar aqui na prática)
-    const usable = pool.length ? pool : DICT[state.len].keys;
-    key = usable[Math.floor(Math.random()*usable.length)];
+    key = pick(usable);
+    // corrente: a resposta nova não pode ser a mesma que vai entrar de 1º palpite
+    const prev = v==='chain' && state.run?.prev;
+    for(let i=0; prev && key===prev && i<20; i++) key = pick(usable);
   }
   state.answer = key;
   state.answerRaw = DICT[state.len].words.get(key);
+  // dueto/quarteto: sorteia palavras diferentes entre si
+  state.multi = null;
+  const nb = VARIANTS[v].boards;
+  if(nb){
+    const base = usable.length>=nb ? usable : DICT[state.len].keys;
+    const keys = [key];
+    while(keys.length<nb){ const k = pick(base); if(!keys.includes(k)) keys.push(k); }
+    state.multi = { keys, raws:keys.map(k=>DICT[state.len].words.get(k)),
+      res:keys.map(()=>[]), solved:keys.map(()=>false), solvedAt:keys.map(()=>0) };
+  }
+  // trapaceiro: começa com todas as palavras possíveis; a resposta só se
+  // define de verdade quando sobrar uma (ver cheatDodge)
+  state.cheat = v==='cheat' ? { cands: usable.slice() } : null;
   state.rows = [];
   state.cur = Array(state.len).fill('');
   state.cursor = 0;
@@ -342,16 +426,29 @@ function newGame(forcedKey){
   stopCountdown();
   endEl.innerHTML = '';
   hintEl.innerHTML = '';
+  // passa-e-joga: quem começa alterna a cada partida
+  if(v==='pass' && state.run){ state.run.games++; state.run.turn = (state.run.games-1)%2; }
   drawBoard();
   drawKeyboard();
   markActiveRow();
   renderCurrent();
-  setGroupHintBtn(true);
+  setGroupHintBtn(!noAssist());
+  renderVarBar();
+  // corrente: a palavra acertada na partida anterior entra sozinha como 1º palpite
+  if(v==='chain' && state.run?.prev){
+    if(state.run.prev.length===state.len){
+      state.cur = state.run.prev.split('');
+      submit();
+    } else {
+      state.run.prev = null; state.run.count = 0;
+      say('Tamanho mudou: a corrente recomeça');
+      renderVarBar();
+    }
+  }
 }
 
-function drawBoard(){
-  board.innerHTML='';
-  board.style.setProperty('--tile', `clamp(30px, ${Math.min(72/state.len, 14)}vw, ${state.len>6?52:62}px)`);
+/* monta uma grade de linhas×casinhas (um tabuleiro) dentro de parent */
+function buildRows(parent){
   for(let r=0;r<state.tries;r++){
     const row=document.createElement('div');
     row.className='row'; row.dataset.row=r;
@@ -361,8 +458,48 @@ function drawBoard(){
       t.className='tile'; t.dataset.col=c;
       row.appendChild(t);
     }
-    board.appendChild(row);
+    parent.appendChild(row);
   }
+}
+function drawBoard(){
+  board.innerHTML='';
+  board.classList.toggle('multi', !!state.multi);
+  board.style.gridTemplateColumns = '';
+  if(state.multi){
+    // dueto/quarteto: um mini-tabuleiro por palavra, lado a lado
+    state.multi.keys.forEach((k,b)=>{
+      const mini = document.createElement('div');
+      mini.className = 'mini'; mini.dataset.b = b;
+      buildRows(mini);
+      board.appendChild(mini);
+    });
+    sizeMultiBoard();
+  } else {
+    board.style.setProperty('--tile', `clamp(30px, ${Math.min(72/state.len, 14)}vw, ${state.len>6?52:62}px)`);
+    buildRows(board);
+  }
+}
+/* tamanho das casinhas no dueto/quarteto: cabe na largura; na altura deixa
+   rolar um pouco (o teclado fixo continua visível) em vez de virar formiga */
+function sizeMultiBoard(){
+  if(!state.multi) return;
+  const n = state.multi.keys.length;
+  const cols = n===4 && innerWidth>=900 ? 4 : 2;
+  const gap = 4, between = 16;
+  const availW = Math.min(innerWidth, 1100) - 32 - between*(cols-1);
+  const availH = innerHeight*0.6 / (n/cols);
+  const byW = availW/cols/state.len - gap;
+  const byH = availH/state.tries - gap;
+  const tile = Math.max(20, Math.min(48, byW, Math.max(byH, 26)));
+  board.style.setProperty('--tile', tile.toFixed(1)+'px');
+  board.style.gridTemplateColumns = `repeat(${cols}, auto)`;
+  if(state.multi.cols!==cols){ const had = state.multi.cols; state.multi.cols = cols; if(had) paintKeyboard(); }
+}
+let resizeTimer = null;
+addEventListener('resize', ()=>{ clearTimeout(resizeTimer); resizeTimer = setTimeout(sizeMultiBoard, 150); });
+/* linha r do tabuleiro (no dueto/quarteto, do mini-tabuleiro b) */
+function rowEl(r, b=0){
+  return state.multi ? board.children[b]?.children[r] : board.children[r];
 }
 
 /* clicar numa casinha da linha ativa move o "cursor" pra ela, permitindo
@@ -379,8 +516,10 @@ board.addEventListener('click', e=>{
 });
 
 function markActiveRow(){
-  [...board.children].forEach((row,i)=>{
-    row.classList.toggle('active-row', i===state.row && state.status==='playing');
+  board.querySelectorAll('.row').forEach(row=>{
+    const b = row.parentElement.dataset.b;
+    const solved = b!==undefined && state.multi?.solved[b];
+    row.classList.toggle('active-row', Number(row.dataset.row)===state.row && state.status==='playing' && !solved);
   });
 }
 
@@ -407,12 +546,43 @@ function drawKeyboard(){
   paintKeyboard();
 }
 function paintKeyboard(){
+  // dueto/quarteto: cada tecla é dividida em pedaços, um por tabuleiro
+  // (metades no dueto, quadrantes no quarteto); tabuleiro resolvido fica neutro
+  const per = state.multi ? state.multi.keys.map((k,b)=>
+    state.multi.solved[b] ? {} : letterStates(state.rows.map(r=>r.guess), state.multi.res[b])) : null;
   kb.querySelectorAll('.key').forEach(b=>{
     const k=b.dataset.key;
-    b.classList.remove('correct','present','absent','hint');
+    b.classList.remove('correct','present','absent','hint','split');
+    b.style.background = '';
+    if(per){
+      const parts = per.map(ls=>ls[k] || null);
+      const known = parts.filter(Boolean);
+      if(!known.length) return;
+      if(known.length===parts.length && known.every(x=>x===known[0])) return b.classList.add(known[0]);
+      b.classList.add('split');
+      b.style.background = splitKeyBg(parts);
+      return;
+    }
     if(state.letterState[k]) b.classList.add(state.letterState[k]);
     else if(state.hintKey===k) b.classList.add('hint');
   });
+}
+/* melhor estado (verde > azul > cinza) de cada letra numa lista de palpites */
+function letterStates(guesses, resList){
+  const rank = {absent:1, present:2, correct:3}, out = {};
+  resList.forEach((res,r)=>res.forEach((v,i)=>{
+    const c = guesses[r][i];
+    if(!out[c] || rank[v] > rank[out[c]]) out[c] = v;
+  }));
+  return out;
+}
+function splitKeyBg(parts){
+  const c = parts.map(p => p ? `var(--${p})` : 'var(--key)');
+  if(c.length===2) return `linear-gradient(90deg, ${c[0]} 0 50%, ${c[1]} 50% 100%)`;
+  // quarteto em 4 colunas (tela larga): 4 faixas, na ordem dos tabuleiros
+  if(state.multi?.cols===4) return `linear-gradient(90deg, ${c[0]} 0 25%, ${c[1]} 25% 50%, ${c[2]} 50% 75%, ${c[3]} 75% 100%)`;
+  // quadrantes na mesma ordem dos tabuleiros: ↖ ↗ ↙ ↘ (conic começa no topo, sentido horário)
+  return `conic-gradient(${c[1]} 0 25%, ${c[3]} 0 50%, ${c[2]} 0 75%, ${c[0]} 0)`;
 }
 
 /* =========================================================
@@ -423,7 +593,7 @@ function showHint(html){
 }
 
 function maybeHint(){
-  if(!state.hints || state.status!=='playing') return;
+  if(!hintsOn() || state.status!=='playing') return;
   const restam = state.tries - state.row;
   if(restam > 2 || restam < 1) return;
   const nivel = restam === 2 ? 1 : 2;
@@ -556,25 +726,37 @@ document.addEventListener('keydown', e=>{
   }
 });
 
-function renderCurrent(){
+/* linhas onde o palpite atual aparece: uma só no jogo normal, uma por
+   tabuleiro ainda não resolvido no dueto/quarteto — cada uma com a
+   resposta (com acento) e os resultados anteriores do seu tabuleiro */
+function curTargets(){
+  if(state.multi){
+    const m = state.multi;
+    return m.keys.map((k,b)=> m.solved[b] ? null : {row:rowEl(state.row,b), raw:m.raws[b], res:m.res[b]})
+      .filter(t=>t && t.row);
+  }
   const row = board.children[state.row];
-  if(!row) return;
-  // fora do modo difícil as verdes já descobertas não são travadas: aparecem
-  // como lembrete apagadinho (igual à dica de posição) até o jogador digitar
-  const known = {};
-  if(!state.hard) state.rows.forEach(r=>r.res.forEach((v,i)=>{ if(v==='correct') known[i] = state.answerRaw[i].toUpperCase(); }));
-  [...row.children].forEach((tile,i)=>{
-    const ch = state.cur[i];
-    const ghost = state.ghosts[i] || known[i];
-    const locked = state.locked.has(i);
-    // travada (verde-limão): mostra sempre a letra com acento/til da resposta.
-    // state.cur guarda a letra sem acento (é o que é comparado com o dicionário),
-    // então sem isso a casinha travada aparecia sem acento na linha atual.
-    tile.textContent = ch ? (locked ? state.answerRaw[i] : ch) : (ghost ? ghost : '');
-    tile.classList.toggle('filled', !!ch);
-    tile.classList.toggle('ghost', !ch && !!ghost);
-    tile.classList.toggle('locked', locked);
-    tile.classList.toggle('active', i===state.cursor);
+  return row ? [{row, raw:state.answerRaw, res:state.rows.map(r=>r.res)}] : [];
+}
+function renderCurrent(){
+  curTargets().forEach(({row, raw, res})=>{
+    // fora do modo difícil as verdes já descobertas não são travadas: aparecem
+    // como lembrete apagadinho (igual à dica de posição) até o jogador digitar
+    const known = {};
+    if(!hardOn()) res.forEach(r=>r.forEach((v,i)=>{ if(v==='correct') known[i] = raw[i].toUpperCase(); }));
+    [...row.children].forEach((tile,i)=>{
+      const ch = state.cur[i];
+      const ghost = state.ghosts[i] || known[i];
+      const locked = state.locked.has(i);
+      // travada (verde-limão): mostra sempre a letra com acento/til da resposta.
+      // state.cur guarda a letra sem acento (é o que é comparado com o dicionário),
+      // então sem isso a casinha travada aparecia sem acento na linha atual.
+      tile.textContent = ch ? (locked ? raw[i] : ch) : (ghost ? ghost : '');
+      tile.classList.toggle('filled', !!ch);
+      tile.classList.toggle('ghost', !ch && !!ghost);
+      tile.classList.toggle('locked', locked);
+      tile.classList.toggle('active', i===state.cursor);
+    });
   });
 }
 
@@ -615,44 +797,42 @@ function submit(){
   if(state.cur.includes('')) return reject('Faltam letras');
   const g = state.cur.join('');
   // qualquer combinação de letras é aceita como palpite, sem checar o dicionário
-  if(state.hard){
+  if(hardOn()){
     const err = hardModeError(g);
     if(err) return reject(err);
   }
+  if(state.multi) return submitMulti(g);
+  // trapaceiro: antes de avaliar, o jogo troca a resposta pra fugir do palpite
+  if(state.cheat) cheatDodge(g);
 
   const res = evaluate(g, state.answer);
   state.rows.push({guess:g, res});
   const row = board.children[state.row];
   row.classList.remove('active-row');
   [...row.children].forEach(t=>t.classList.remove('active'));
+  // passa-e-joga: marca de quem foi o palpite e passa a vez
+  const r = state.run;
+  if(r?.kind==='pass'){ row.dataset.p = r.turn; r.last = r.turn; r.turn = 1 - r.turn; }
 
   // trava pra todo callback adiado abaixo: se uma partida nova começar
   // (newGame() incrementa gameId) antes do setTimeout disparar, o callback
   // vira no-op em vez de mexer no estado do jogo seguinte
   const gameId = state.gameId;
 
-  [...row.children].forEach((tile,i)=>{
-    setTimeout(()=>{
-      if(state.gameId!==gameId) return;
-      tile.classList.add('reveal');
-      setTimeout(()=>{
-        if(state.gameId!==gameId) return;
-        tile.classList.add(res[i]);
-        // mostra o acento da resposta quando a letra está certa no lugar
-        tile.textContent = res[i]==='correct' ? state.answerRaw[i] : g[i];
-        sfx[res[i]]();
-      },250);
-    }, i*180);
+  revealRow(row, g, res, state.answerRaw, gameId);
+  res.forEach((v,i)=>{
     // prioridade: verde > azul > cinza
     const prev = state.letterState[g[i]];
     const rank = {absent:1, present:2, correct:3};
-    if(!prev || rank[res[i]] > rank[prev]) state.letterState[g[i]] = res[i];
+    if(!prev || rank[v] > rank[prev]) state.letterState[g[i]] = v;
   });
 
   const delay = state.len*180 + 320;
   setTimeout(()=>{ if(state.gameId===gameId) paintKeyboard(); }, delay);
 
   state.row++;
+  // passa-e-joga: a barra mostra de quem é a vez (ainda não terminou)
+  if(r?.kind==='pass' && g!==state.answer && state.row<state.tries) renderVarBar();
 
   if(g === state.answer){
     // estado transitório: já sabemos que ganhou, mas só vira 'win' de fato
@@ -680,7 +860,7 @@ function submit(){
     // jogo normal igual ao difícil
     const nextCur = Array(state.len).fill('');
     const nextLocked = new Set();
-    if(state.hard) state.rows.forEach(r=>{
+    if(hardOn()) state.rows.forEach(r=>{
       r.res.forEach((v,i)=>{ if(v==='correct'){ nextCur[i] = r.guess[i]; nextLocked.add(i); } });
     });
     state.cur = nextCur;
@@ -694,6 +874,93 @@ function submit(){
   scrollAboveKeyboard(board.children[state.row]);
 }
 
+/* animação de virar as casinhas de uma linha já avaliada. raw: resposta
+   com acento (letra certa no lugar aparece com acento); quiet: sem som
+   (dueto/quarteto tocam o som de um tabuleiro só) */
+function revealRow(row, g, res, raw, gameId, quiet){
+  [...row.children].forEach((tile,i)=>{
+    tile.classList.remove('active');
+    setTimeout(()=>{
+      if(state.gameId!==gameId) return;
+      tile.classList.add('reveal');
+      setTimeout(()=>{
+        if(state.gameId!==gameId) return;
+        tile.classList.add(res[i]);
+        tile.textContent = res[i]==='correct' ? raw[i] : g[i];
+        if(!quiet) sfx[res[i]]();
+      },250);
+    }, i*180);
+  });
+}
+
+/* TRAPACEIRO (estilo Absurdle): separa as palavras ainda possíveis pelo
+   resultado que o palpite daria contra cada uma e fica com o maior grupo
+   (empate: o que dá menos pista). A resposta passa a ser uma palavra desse
+   grupo — então a avaliação normal já mostra o resultado "fugido". */
+function cheatDodge(g){
+  const buckets = new Map();
+  state.cheat.cands.forEach(c=>{
+    const sig = evaluate(g, c).join();
+    if(!buckets.has(sig)) buckets.set(sig, []);
+    buckets.get(sig).push(c);
+  });
+  const pista = sig => sig.split(',').reduce((s,v)=>s + (v==='correct'?2:v==='present'?1:0), 0);
+  let best = null;
+  buckets.forEach((list, sig)=>{
+    if(!best || list.length>best.list.length || (list.length===best.list.length && pista(sig)<pista(best.sig))) best = {sig, list};
+  });
+  state.cheat.cands = best.list;
+  const key = best.list.includes(g) && best.list.length===1 ? g : best.list[Math.floor(Math.random()*best.list.length)];
+  state.answer = key;
+  state.answerRaw = DICT[state.len].words.get(key);
+}
+
+/* DUETO / QUARTETO: o mesmo palpite vale pra todos os tabuleiros ainda
+   não resolvidos; ganha quando resolver todos dentro das tentativas */
+function submitMulti(g){
+  const m = state.multi, r = state.row, gameId = state.gameId;
+  const delay = state.len*180 + 320;
+  state.rows.push({guess:g});
+  let first = true;
+  m.keys.forEach((key,b)=>{
+    if(m.solved[b]) return;
+    const res = evaluate(g, key);
+    m.res[b].push(res);
+    const row = rowEl(r, b);
+    row.classList.remove('active-row');
+    revealRow(row, g, res, m.raws[b], gameId, !first);
+    first = false;
+    if(g===key){
+      m.solved[b] = true; m.solvedAt[b] = r+1;
+      setTimeout(()=>{
+        if(state.gameId!==gameId) return;
+        row.classList.add('win');
+        board.children[b].classList.add('solved');
+      }, delay);
+    }
+  });
+  setTimeout(()=>{ if(state.gameId===gameId) paintKeyboard(); }, delay);
+  state.row++;
+  const all = m.solved.every(Boolean);
+  if(all || state.row>=state.tries){
+    state.status = 'ending';
+    setTimeout(()=>{
+      if(state.gameId!==gameId) return;
+      state.status = all ? 'win' : 'lose';
+      finish(all);
+    }, delay + 200);
+  } else {
+    if(m.solved.some((s,b)=>s && m.solvedAt[b]===r+1)) setTimeout(()=>{ if(state.gameId===gameId){ sfx.ach(); buzz(40); } }, delay - 500);
+    state.cur = Array(state.len).fill('');
+    state.cursor = 0;
+    renderCurrent();
+  }
+  markActiveRow();
+  // rola até a linha atual do último tabuleiro aberto (o mais baixo na tela)
+  const open = m.keys.map((k,b)=>b).filter(b=>!m.solved[b]);
+  scrollAboveKeyboard(rowEl(state.row, open.length ? open[open.length-1] : 0));
+}
+
 /* o teclado fica fixo no rodapé (sticky); em tela baixa ele pode cobrir a
    linha atual ou o fim de jogo — rola a página só o necessário pra mostrar */
 function scrollAboveKeyboard(el){
@@ -705,9 +972,9 @@ function scrollAboveKeyboard(el){
 
 function reject(msg){
   sfx.error();
+  buzz(80);
   say(msg);
-  const row=board.children[state.row];
-  if(row){ row.classList.add('shake'); setTimeout(()=>row.classList.remove('shake'),500); }
+  curTargets().forEach(({row})=>{ row.classList.add('shake'); setTimeout(()=>row.classList.remove('shake'),500); });
 }
 
 function say(msg, ms=1600){
@@ -720,46 +987,155 @@ function say(msg, ms=1600){
 /* =========================================================
    FIM DE JOGO
    ========================================================= */
-const ELOGIOS=['Impressionante!','Excelente!','Muito bem!','Boa!','Ufa!','Essa foi por pouco!'];
+/* mensagens com personalidade, conforme como foi a partida */
+const pickOne = list => list[Math.floor(Math.random()*list.length)];
+function winMessage(){
+  const r = state.row, t = state.tries;
+  if(r===1) return pickOne(['Na primeira?! Você colou 👀','Telepatia pura 🔮','Isso foi sorte ou talento? 🎯']);
+  if(r===t) return pickOne(['Ufa, no último suspiro! 😮‍💨','Por um fio! 🧵','Coração na boca, mas foi! 💓']);
+  if(r===2) return pickOne(['Faro de detetive 🕵️','Rápido no gatilho! ⚡','Que olho! 👁️']);
+  if(stats.streak>=5 && stats.streak%5===0) return `${stats.streak} seguidas! Tá on fire 🔥`;
+  return pickOne(['Muito bem!','Mandou bem 👏','Boa! 💪','Excelente!','Arrasou ✨']);
+}
+function loseMessage(){
+  // faltou uma letra só no último palpite?
+  const last = state.rows[state.rows.length-1];
+  if(last?.res && last.res.filter(v=>v!=='correct').length===1) return 'Faltou só uma letrinha! 😩';
+  return pickOne(['Fica para a próxima','Essa era cabeluda 😬','O dicionário venceu dessa vez 📖','Respira e tenta outra 🌬️']);
+}
+/* respostas da partida (várias no dueto/quarteto) */
+function answersOf(){ return state.multi ? state.multi.keys : [state.answer]; }
+
 function finish(won){
   hintEl.innerHTML='';
   state.hintKey=null;
   setGroupHintBtn(false);
   paintKeyboard();
   won ? sfx.win() : sfx.lose();
+  buzz(won ? [60,40,60,40,120] : 220);
   // relâmpago não entra no placar normal: soma ponto e já passa pra próxima palavra
   if(state.mode==='blitz') return blitzRoundEnd(won);
+  const v = variant();
   stats.played++;
   if(won){
     stats.wins++; stats.streak++;
-    if(state.row>=1 && state.row<=stats.dist.length) stats.dist[state.row-1]++;
-    const cat = wordGroup[state.answer];
-    if(cat && !stats.groups.includes(cat)) stats.groups.push(cat);
+    // distribuição só faz sentido com uma palavra por partida
+    if(!state.multi && state.row>=1 && state.row<=stats.dist.length) stats.dist[state.row-1]++;
+    answersOf().forEach(k=>{
+      const cat = wordGroup[k];
+      if(cat && !stats.groups.includes(cat)) stats.groups.push(cat);
+    });
   } else { stats.streak=0; }
   store.set('dito:stats', stats);
-  state.trail = possibilitiesTrail(state.rows, answerPool());
+  state.trail = state.multi ? null : possibilitiesTrail(state.rows, answerPool());
 
-  if(state.mode==='daily'){
-    // só uma partida diária por dia: guarda o resultado pra bloquear replay
-    store.set('dito:daily', {
-      date:todayStr(), len:state.len, tries:state.tries,
-      rows:state.rows, status:state.status, answerRaw:state.answerRaw
-    });
-  }
+  if(state.mode==='daily') saveDaily();
+  const runInfo = updateRun(won);
 
   // antes de endDuel(): as conquistas olham dicas/modo difícil/duelo desta partida
   checkAchievements(won);
+  const xp = gainXP(xpForGame(won));
+  reportMission({ won, rows:state.row, len:state.len, variant:v, mode:state.mode,
+    archive: state.mode==='daily' && state.dailyDate!==todayStr(),
+    groupHint:state.groupHintUsed, hard:hardOn(), groups:answersOf().map(k=>wordGroup[k]),
+    chain: v==='chain' && won ? runInfo.count : 0, sudden: v==='sudden' && won ? runInfo.count : 0 });
   renderStats();
 
   // terminada a partida do desafio, libera as configurações de novo
   if(state.duel) endDuel();
 
-  renderEndbar(
-    won ? ELOGIOS[Math.max(0, Math.min(state.row-1, ELOGIOS.length-1))] : 'A palavra era',
-    won ? `Acertou em ${state.row} de ${state.tries}` : 'Fica para a próxima',
-    { again: state.mode!=='daily', trail: state.trail, countdown: state.mode==='daily' }
-  );
+  const p = state.run?.kind==='pass' ? PLAYERS[state.run.last] : null;
+  let top, bottom, word;
+  if(state.multi){
+    const m = state.multi, n = m.keys.length;
+    word = m.raws.map((w,b)=>`<span class="${m.solved[b]?'ok':'miss'}">${w}</span>`).join(' ');
+    top = won ? winMessage() : 'As palavras eram';
+    bottom = won ? `Resolveu as ${n} em ${state.row} de ${state.tries}` : `Resolveu ${m.solved.filter(Boolean).length} de ${n} · ${loseMessage()}`;
+  } else if(v==='cheat'){
+    top = won ? 'Você encurralou o trapaceiro! 😈' : 'O trapaceiro escapou com';
+    bottom = won ? `Em ${state.row} de ${state.tries} tentativas` : `Ainda sobravam ${state.cheat.cands.length} palavras possíveis 🤡`;
+  } else if(p){
+    top = won ? `${p.icon} ${p.name} acertou!` : 'Ninguém acertou! A palavra era';
+    bottom = `Placar: ${PLAYERS[0].icon} ${state.run.score[0]} × ${state.run.score[1]} ${PLAYERS[1].icon}`;
+  } else {
+    top = won ? winMessage() : 'A palavra era';
+    bottom = won ? `Acertou em ${state.row} de ${state.tries}` : loseMessage();
+  }
+  if(runInfo.text) bottom += `<br>${runInfo.text}`;
+  const archive = state.mode==='daily' && state.dailyDate!==todayStr();
+  renderEndbar(top, bottom, {
+    word, again: state.mode!=='daily', againLabel: runInfo.again,
+    trail: state.trail, countdown: state.mode==='daily' && !archive,
+    words: answersOf(), xp,
+    extra: archive ? '<button class="btn ghost" id="toToday">📅 Voltar para hoje</button>' : ''
+  });
   if(won) confetti();
+}
+
+/* =========================================================
+   SEQUÊNCIAS DAS VARIAÇÕES — corrente, morte súbita e passa-e-joga
+   ========================================================= */
+function initRun(){
+  const v = state.variant;
+  state.run = v==='chain'  ? {kind:'chain', count:0, prev:null}
+            : v==='sudden' ? {kind:'sudden', count:0, pts:0}
+            : v==='pass'   ? {kind:'pass', turn:0, last:0, games:0, score:[0,0]}
+            : null;
+}
+/* atualiza a sequência no fim da partida; devolve o texto extra do fim de jogo */
+function updateRun(won){
+  const r = state.run;
+  if(!r || state.mode!=='free') return {};
+  let text = '', again, count = 0;
+  if(r.kind==='chain'){
+    if(won){
+      r.count++; count = r.count; r.prev = state.answer;
+      if(r.count>runs.chain){ runs.chain = r.count; saveRuns(); }
+      text = `⛓️ Corrente de ${r.count} ${r.count===1?'elo':'elos'}! A próxima começa com <b>${state.answerRaw.toUpperCase()}</b>`;
+      again = 'Próximo elo ⛓️';
+    } else {
+      text = r.count ? `⛓️ A corrente quebrou com ${r.count} ${r.count===1?'elo':'elos'} (recorde: ${runs.chain})` : '';
+      r.count = 0; r.prev = null;
+      again = 'Nova corrente';
+    }
+  } else if(r.kind==='sudden'){
+    if(won){
+      const pts = SUDDEN_PTS[state.row-1] || 0;
+      r.count++; r.pts += pts; count = r.count;
+      // grava o recorde já no acerto: abandonar a rodada no meio não pode perdê-lo
+      if(r.pts>runs.sudden){ runs.sudden = r.pts; runs.suddenWords = r.count; r.record = true; saveRuns(); }
+      text = `💀 +${pts} pts · ${r.count} ${r.count===1?'viva':'seguidas'} · ${r.pts} pts no total`;
+      again = 'Próxima palavra 💀';
+    } else {
+      const novo = !!r.record;
+      text = `💀 Fim da linha: ${r.count} ${r.count===1?'palavra':'palavras'} · ${r.pts} pts ${novo && r.pts ? '— 🎉 novo recorde!' : `(recorde: ${runs.sudden})`}`;
+      if(novo && r.pts) setTimeout(confetti, 300);
+      r.count = 0; r.pts = 0; r.record = false;
+      again = 'Nova rodada';
+    }
+  } else if(r.kind==='pass'){
+    if(won) r.score[r.last]++;
+    again = 'Próxima partida';
+  }
+  renderVarBar();
+  return {text, again, count};
+}
+function saveRuns(){ store.set('dito:runs', runs); }
+const varBar = document.getElementById('varBar');
+function renderVarBar(){
+  const r = state.mode==='free' ? state.run : null;
+  if(!r){ varBar.hidden = true; return; }
+  varBar.hidden = false;
+  if(r.kind==='chain'){
+    varBar.innerHTML = `<span>⛓️ Corrente: <b>${r.count}</b></span><span class="dim">🏆 Recorde ${runs.chain}</span>`;
+  } else if(r.kind==='sudden'){
+    varBar.innerHTML = `<span>💀 <b>${r.count}</b> ${r.count===1?'viva':'seguidas'}</span><span>🏅 <b>${r.pts}</b> pts</span><span class="dim">🏆 Recorde ${runs.sudden}</span>`;
+  } else {
+    const p = PLAYERS[r.turn];
+    const playing = state.status==='playing';
+    varBar.innerHTML = `<span class="turn p${r.turn}">${playing ? `Vez de ${p.icon} <b>${p.name}</b>` : 'Fim da partida'}</span>`
+      + `<span>${PLAYERS[0].icon} <b>${r.score[0]}</b> × <b>${r.score[1]}</b> ${PLAYERS[1].icon}</span>`;
+  }
 }
 
 /* monta a barra de fim de jogo (vitória/derrota normal ou "já jogou hoje") */
@@ -773,10 +1149,13 @@ function renderEndbar(subTop, subBottom, opts={}){
     <div class="sub">${subBottom}</div>
     ${opts.trail ? trailHTML(opts.trail) : ''}
     ${opts.countdown ? '<div class="sub countdown"></div>' : ''}
+    ${opts.words ? dictLinksHTML(opts.words) : ''}
+    ${opts.xp ? xpLineHTML(opts.xp) : ''}
     ${opts.extra || ''}
     <div class="actions">
-      ${opts.again!==false ? '<button class="btn" id="again">Jogar de novo</button>' : ''}
+      ${opts.again!==false ? `<button class="btn" id="again">${opts.againLabel || 'Jogar de novo'}</button>` : ''}
       <button class="btn ghost" id="share">Copiar resultado</button>
+      ${opts.noImage ? '' : '<button class="btn ghost" id="shareImg" title="Compartilha o tabuleiro como imagem">🖼️ Imagem</button>'}
     </div>`;
   endEl.innerHTML='';
   endEl.appendChild(box);
@@ -786,27 +1165,120 @@ function renderEndbar(subTop, subBottom, opts={}){
     newGame();
   };
   document.getElementById('share').onclick=share;
+  const img = document.getElementById('shareImg');
+  if(img) img.onclick=shareImage;
+  const toToday = document.getElementById('toToday');
+  if(toToday) toToday.onclick=()=>enterDaily();
   if(opts.countdown) startCountdown(box.querySelector('.countdown'));
   scrollAboveKeyboard(box);
 }
 
-function share(){
-  let text;
+const fmtDay = d => d.split('-').reverse().join('/'); // 2026-10-25 → 25/10/2026
+/* título do resultado compartilhado (texto e imagem) */
+function shareHead(){
+  const placar = `${state.status==='win'?state.row:'X'}/${state.tries}`;
+  if(state.mode==='daily') return `Dito diário ${fmtDay(state.dailyDate || todayStr())} — ${placar}`;
+  const v = variant();
+  const nome = v==='normal' ? '' : `${VARIANTS[v].icon} ${VARIANTS[v].name} · `;
+  return `Dito ${nome}${state.len} letras — ${placar}`;
+}
+/* grades de resultados por tabuleiro: [tabuleiro][linha] = res */
+function resultGrids(){
+  return state.multi ? state.multi.res : [state.rows.map(r=>r.res)];
+}
+function shareText(){
   if(state.mode==='blitz' && state.blitz){
     const b = state.blitz;
-    text = `Dito ⚡ Relâmpago — ${b.points} pts (${b.score} ${b.score===1?'palavra':'palavras'}) contra o relógio`;
-  } else {
-    const emoji={correct:'🟩',present:'🟦',absent:'⬜'};
-    const placar = `${state.status==='win'?state.row:'X'}/${state.tries}`;
-    const head = state.mode==='daily' ? `Dito diário ${todayStr()} — ${placar}` : `Dito ${state.len} letras — ${placar}`;
-    const grid=state.rows.map(r=>r.res.map(x=>emoji[x]).join('')).join('\n');
-    text=head+'\n'+grid;
-    if(state.trail) text += `\n🔍 ${state.trail.join(' › ')}`;
+    return `Dito ⚡ Relâmpago — ${b.points} pts (${b.score} ${b.score===1?'palavra':'palavras'}) contra o relógio`;
   }
+  const emoji={correct:'🟩',present:'🟦',absent:'⬜'};
+  const line = res => res ? res.map(x=>emoji[x]).join('') : '⬛'.repeat(state.len);
+  const grids = resultGrids();
+  let grid;
+  if(grids.length===1){
+    grid = grids[0].map(line).join('\n');
+  } else {
+    // tabuleiros lado a lado (quarteto em 2×2)
+    const block = bs => Array.from({length:state.row}, (_,i)=>bs.map(b=>line(grids[b][i])).join(' ')).join('\n');
+    grid = grids.length===2 ? block([0,1]) : block([0,1]) + '\n\n' + block([2,3]);
+  }
+  let text = shareHead() + '\n' + grid;
+  if(state.trail) text += `\n🔍 ${state.trail.join(' › ')}`;
+  return text;
+}
+function share(){
+  let text = shareText();
   if(location.protocol.startsWith('http')) text += '\n' + location.origin + location.pathname;
   navigator.clipboard?.writeText(text)
     .then(()=>say('Resultado copiado'))
     .catch(()=>say('Não foi possível copiar'));
+}
+
+/* desenha o resultado (só as cores, sem as letras — não estraga a
+   surpresa de ninguém) numa imagem PNG e compartilha/copia/baixa */
+function shareImage(){
+  const cs = getComputedStyle(document.documentElement);
+  const col = v => cs.getPropertyValue(v).trim();
+  const grids = resultGrids();
+  const n = grids.length, cols = n===4 ? 2 : n, lines = n/cols;
+  const cell = n>1 ? 24 : 44, gap = n>1 ? 4 : 6, pad = 36, between = 26;
+  const gw = state.len*cell + (state.len-1)*gap, gh = state.tries*cell + (state.tries-1)*gap;
+  const W = Math.max(440, pad*2 + cols*gw + (cols-1)*between);
+  const top = 118, H = top + lines*gh + (lines-1)*between + 70;
+  const cv = document.createElement('canvas'), dpr = 2;
+  cv.width = W*dpr; cv.height = H*dpr;
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const round = (x,y,w,h,r) => { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x,y,w,h,r) : ctx.rect(x,y,w,h); };
+  ctx.fillStyle = col('--bg'); ctx.fillRect(0,0,W,H);
+  // logo D I T O em casinhas, como no topo da página
+  const logo = ['D','I','T','O'], lc = ['--absent','--present','--absent','--correct'], ls = 34;
+  let lx = W/2 - (logo.length*ls + (logo.length-1)*6)/2;
+  ctx.font = '800 22px "Bricolage Grotesque", system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  logo.forEach((ch,i)=>{
+    round(lx, 22, ls, ls, 7); ctx.fillStyle = col(lc[i]); ctx.fill();
+    ctx.fillStyle = col(lc[i]+'-ink'); ctx.fillText(ch, lx+ls/2, 22+ls/2+1);
+    lx += ls+6;
+  });
+  ctx.fillStyle = col('--ink');
+  ctx.font = '700 17px "Space Grotesk", system-ui, sans-serif';
+  ctx.fillText(shareHead().replace(/^Dito /,''), W/2, 84);
+  const x0 = (W - (cols*gw + (cols-1)*between))/2;
+  grids.forEach((g,b)=>{
+    const gx = x0 + (b%cols)*(gw+between), gy = top + Math.floor(b/cols)*(gh+between);
+    for(let r=0;r<state.tries;r++) for(let c=0;c<state.len;c++){
+      const res = g[r]?.[c];
+      round(gx + c*(cell+gap), gy + r*(cell+gap), cell, cell, n>1 ? 5 : 8);
+      if(res){ ctx.fillStyle = col('--'+res); ctx.fill(); }
+      else { ctx.fillStyle = col('--tile-empty'); ctx.fill(); ctx.strokeStyle = col('--tile-border'); ctx.lineWidth = 1.5; ctx.stroke(); }
+    }
+  });
+  ctx.fillStyle = col('--ink-soft');
+  ctx.font = '500 13px "Space Grotesk", system-ui, sans-serif';
+  ctx.fillText(location.protocol.startsWith('http') ? location.host + location.pathname : 'Dito — adivinhe a palavra', W/2, H - 30);
+  cv.toBlob(async blob=>{
+    if(!blob) return say('Não foi possível gerar a imagem');
+    const file = new File([blob], 'dito.png', {type:'image/png'});
+    try{
+      if(navigator.canShare?.({files:[file]})){ await navigator.share({files:[file], text:shareText()}); return; }
+    }catch(e){ if(e.name==='AbortError') return; }
+    try{
+      await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+      return say('Imagem copiada');
+    }catch(e){}
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'dito.png';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+    say('Imagem baixada');
+  }, 'image/png');
+}
+
+/* link pro significado no Dicio (o endereço usa a palavra sem acento) */
+function dictLinksHTML(keys){
+  const links = keys.map(k=>`<a href="https://www.dicio.com.br/${encodeURIComponent(k)}/" target="_blank" rel="noopener">${rawForm(k).toUpperCase()}</a>`);
+  return `<div class="dict">📖 O que significa ${links.join(' · ')}?</div>`;
 }
 
 /* =========================================================
@@ -866,6 +1338,7 @@ function startCountdown(el){
    ========================================================= */
 const BLITZ_START = 150, BLITZ_BONUS = 30, BLITZ_SKIP = 10; // segundos
 const BLITZ_KEEP = 10; // quantos recordes pessoais ficam salvos
+const BLITZ_MIN_THEME = 8; // palavras de 5 letras que um tema precisa ter pra valer no relâmpago
 const blitzBar = document.getElementById('blitzBar');
 // recordes pessoais do relâmpago (localStorage 'dito:blitz'), do maior pro menor:
 // [{id, pts, words, date}]
@@ -921,7 +1394,7 @@ function renderBlitzBar(){
     <span class="score">🏅 ${b.points} pts</span>
     <span class="words">⚡ ${b.score}${b.combo>=2 ? ` <em>🔥×${b.combo}</em>` : ''}</span>
     <span class="best${passou?' beaten':''}">${passou ? '🎉 Novo recorde!' : best ? `🏆 Recorde ${best}` : '🏆 Sem recorde ainda'}</span>
-    ${b.deadline || b.over ? '' : '<span class="wait">digite para começar</span>'}
+    ${b.deadline || b.over ? '' : `<span class="wait">digite para começar${state.theme ? ` · tema: <b>${GROUP_LABEL[state.theme]}</b>` : ' · troque o tema em Ajustes'}</span>`}
     <div class="fill" style="width:${Math.min(100, left/BLITZ_START*100)}%"></div>`;
 }
 /* fim de uma palavra dentro do relâmpago (chamado por finish()) */
@@ -934,6 +1407,7 @@ function blitzRoundEnd(won){
     const pts = blitzPoints(state.row, b.combo);
     b.points += pts;
     if(b.deadline) b.deadline += BLITZ_BONUS*1000;
+    if(b.combo>=2) buzz([30,30,30]);
     say(`+${pts} pts · +${BLITZ_BONUS}s${b.combo>=2 ? ` · combo ×${b.combo}` : ''}`);
   } else {
     b.combo = 0;
@@ -972,7 +1446,7 @@ function endBlitz(){
   const recorde = b.points>0 && b.points>blitzBestPts();
   let entry = null;
   if(b.points>0){
-    entry = { id:Date.now(), pts:b.points, words:b.score, date:todayStr() };
+    entry = { id:Date.now(), pts:b.points, words:b.score, date:todayStr(), theme:state.theme || null };
     blitzRecords.push(entry);
     blitzRecords.sort((x,y)=>y.pts-x.pts || x.id-y.id);
     blitzRecords = blitzRecords.slice(0, BLITZ_KEEP);
@@ -981,6 +1455,8 @@ function endBlitz(){
   const pos = entry ? blitzRecords.indexOf(entry) : -1; // -1: ficou fora da lista
   if(b.score>=5) unlock('raio');
   if(b.score>=10) unlock('tempestade');
+  const xp = gainXP(Math.round(b.points/10));
+  reportMission({ blitzWords:b.score, mode:'blitz' });
   renderStats();
   renderBlitzBar();
   const palavras = `${b.score} ${b.score===1?'palavra':'palavras'}`;
@@ -989,7 +1465,7 @@ function endBlitz(){
     recorde ? `🎉 Novo recorde pessoal! · ${palavras}`
       : pos>=0 ? `${palavras} · ${pos+1}º lugar nos seus recordes`
       : `${palavras} · recorde: ${blitzBestPts()} pts`,
-    { word: `${b.points} pts`, extra: blitzRecordsHTML(entry ? entry.id : null, 5) }
+    { word: `${b.points} pts`, extra: blitzRecordsHTML(entry ? entry.id : null, 5), xp, noImage:true }
   );
   if(recorde) confetti();
 }
@@ -1002,7 +1478,7 @@ function blitzRecordsHTML(highlightId, max){
     <li class="${r.id===highlightId?'me':''}">
       <span class="pos">${medalha[i] || (i+1)+'º'}</span>
       <b>${r.pts} pts</b>
-      <span>${r.words} ${r.words===1?'palavra':'palavras'}</span>
+      <span>${r.words} ${r.words===1?'palavra':'palavras'}${r.theme && GROUP_LABEL[r.theme] ? ` · ${GROUP_LABEL[r.theme]}` : ''}</span>
       <span class="date">${fmt(r.date)}</span>
     </li>`).join('');
   return `<ol class="records">${linhas}</ol>`;
@@ -1028,6 +1504,16 @@ const ACHIEVEMENTS = [
   {id:'tempestade', icon:'🌩️', name:'Tempestade',      desc:'Faça 10 palavras numa rodada do Relâmpago'},
   {id:'explorador', icon:'🧭', name:'Explorador',      desc:'Acerte palavras de 10 grupos temáticos', goal:10, prog:()=>stats.groups.length},
   {id:'veterano',   icon:'🎖️', name:'Veterano',        desc:'Jogue 50 partidas', goal:50, prog:()=>stats.played},
+  {id:'dupla',      icon:'🧩', name:'Dupla dinâmica',  desc:'Vença um Dueto'},
+  {id:'quarteto',   icon:'🀄', name:'Malabarista',     desc:'Vença um Quarteto'},
+  {id:'malandro',   icon:'😈', name:'Mais malandro',   desc:'Encurrale o Trapaceiro'},
+  {id:'elo',        icon:'⛓️', name:'Corrente forte',  desc:'Faça uma corrente de 5 palavras'},
+  {id:'sobrevivente',icon:'💀', name:'Sobrevivente',   desc:'Acerte 5 seguidas na Morte súbita'},
+  {id:'parceria',   icon:'👥', name:'Parceria',        desc:'Termine uma partida de Passa-e-joga'},
+  {id:'assiduo',    icon:'🗓️', name:'Assíduo',         desc:'Acerte o diário 7 dias seguidos', goal:7, prog:()=>dailyStreak().best},
+  {id:'arqueologo', icon:'📚', name:'Arqueólogo',      desc:'Jogue um dia do arquivo do diário'},
+  {id:'missao',     icon:'🎯', name:'Missão dada',     desc:'Cumpra as 3 missões de um dia'},
+  {id:'nivel10',    icon:'👑', name:'Gente grande',    desc:'Chegue ao nível 10', goal:10, prog:()=>levelOf(xpTotal).level},
 ];
 function unlock(id){
   if(ach[id]) return;
@@ -1039,22 +1525,168 @@ function unlock(id){
   say(`🏆 Conquista: ${a.icon} ${a.name}`, 3000);
 }
 function checkAchievements(won){
+  const v = variant();
   if(won){
     unlock('primeira');
-    if(state.row===1) unlock('mosca');
-    if(state.row<=2) unlock('faro');
-    if(state.row===state.tries && state.row>1) unlock('fio');
-    if(!state.hints && !state.groupHintUsed) unlock('sozinho');
-    if(state.hard) unlock('casca');
+    // as de "quantas tentativas" valem só com uma palavra por partida
+    if(!state.multi){
+      if(state.row===1) unlock('mosca');
+      if(state.row<=2) unlock('faro');
+      if(state.row===state.tries && state.row>1) unlock('fio');
+      if(state.tries===3) unlock('apertado');
+    }
+    if(!noAssist() && !state.hints && !state.groupHintUsed) unlock('sozinho');
+    if(hardOn()) unlock('casca');
     if(state.len===8) unlock('gigante');
-    if(state.tries===3) unlock('apertado');
     if(stats.streak>=5) unlock('embalado');
     if(stats.streak>=15) unlock('imparavel');
     if(state.mode==='daily') unlock('pontual');
     if(state.duel) unlock('duelista');
     if(stats.groups.length>=10) unlock('explorador');
+    if(v==='duo') unlock('dupla');
+    if(v==='quad') unlock('quarteto');
+    if(v==='cheat') unlock('malandro');
+    if(v==='chain' && state.run?.count>=5) unlock('elo');
+    if(v==='sudden' && state.run?.count>=5) unlock('sobrevivente');
+  }
+  if(v==='pass') unlock('parceria');
+  if(state.mode==='daily'){
+    if(state.dailyDate!==todayStr()) unlock('arqueologo');
+    if(dailyStreak().best>=7) unlock('assiduo');
   }
   if(stats.played>=50) unlock('veterano');
+}
+
+/* =========================================================
+   NÍVEIS E XP — toda partida rende XP; o nível dá um título engraçado
+   ========================================================= */
+let xpTotal = 0; // localStorage 'dito:xp'
+const TITLES = [[1,'Chutador de Plantão'],[3,'Caçador de Vogais'],[5,'Leitor de Bula'],[8,'Rato de Biblioteca'],
+                [12,'Mestre das Letras'],[16,'Dicionário Ambulante'],[20,'Lenda do Dito']];
+// XP total pra chegar ao nível L: 0, 100, 300, 600, 1000... (cada nível pede 100 a mais)
+const xpForLevel = L => 50*L*(L-1);
+function levelOf(xp){
+  let level = 1;
+  while(xp >= xpForLevel(level+1)) level++;
+  const title = TITLES.filter(([l])=>level>=l).pop()[1];
+  return { level, title, cur: xp - xpForLevel(level), need: xpForLevel(level+1) - xpForLevel(level) };
+}
+const VARIANT_XP = { duo:30, quad:70, cheat:60, sudden:20, chain:0, pass:0, normal:0 };
+function xpForGame(won){
+  if(!won) return 10;
+  const v = variant();
+  let xp = 50 + 10*(state.tries - state.row) + 5*Math.max(0, state.len-5) + VARIANT_XP[v];
+  if(hardOn()) xp += 20;
+  if(state.mode==='daily') xp += 20;
+  if(v==='chain') xp += 5*(state.run?.count || 0);
+  return xp;
+}
+/* soma XP; devolve {gained, level, title, up} pra mostrar no fim de jogo */
+function gainXP(n){
+  const before = levelOf(xpTotal).level;
+  xpTotal += n;
+  store.set('dito:xp', xpTotal);
+  const lv = levelOf(xpTotal);
+  if(lv.level>before){
+    setTimeout(()=>{ sfx.ach(); buzz([40,40,80]); say(`⬆️ Nível ${lv.level}: ${lv.title}!`, 3200); }, 700);
+    if(lv.level>=10) unlock('nivel10');
+  }
+  updateProfileBtn();
+  return { gained:n, level:lv.level, title:lv.title, up:lv.level>before };
+}
+function xpLineHTML(x){
+  return `<div class="xpline${x.up?' up':''}">+${x.gained} XP · Nível ${x.level} — ${x.title}${x.up?' ⬆️':''}</div>`;
+}
+function updateProfileBtn(){
+  const b = document.getElementById('btnProfile');
+  if(!b) return;
+  const done = missions.done.length;
+  b.textContent = `🎯 Nv ${levelOf(xpTotal).level}`;
+  b.classList.toggle('pending', done < missions.list.length);
+  b.title = `Nível e missões do dia (${done}/${missions.list.length} cumpridas)`;
+}
+
+/* =========================================================
+   MISSÕES DO DIA — 3 desafios sorteados pela data (iguais pra todo mundo
+   no mesmo dia), progresso salvo em 'dito:missions'
+   ========================================================= */
+const MISSION_XP = 100;
+const MISSIONS = [
+  {id:'win3',   icon:'🏅', text:'Vença 3 partidas', goal:3, ev:e=>e.won},
+  {id:'play5',  icon:'🎮', text:'Termine 5 partidas (o Relâmpago conta)', goal:5, ev:e=>true},
+  {id:'fast',   icon:'⚡', text:'Acerte em até 3 tentativas', ev:e=>e.won && e.variant!=='duo' && e.variant!=='quad' && e.rows<=3},
+  {id:'nohelp', icon:'🧠', text:'Vença sem usar a 💡 Dica de grupo', ev:e=>e.won && !e.groupHint},
+  {id:'daily',  icon:'📅', text:'Jogue a palavra do dia', ev:e=>e.mode==='daily' && !e.archive},
+  {id:'hard',   icon:'🪨', text:'Vença no modo difícil', ev:e=>e.won && e.hard},
+  {id:'duo',    icon:'🧩', text:'Vença um Dueto', ev:e=>e.won && e.variant==='duo'},
+  {id:'quad',   icon:'🀄', text:'Vença um Quarteto', ev:e=>e.won && e.variant==='quad'},
+  {id:'cheat',  icon:'😈', text:'Encurrale o Trapaceiro', ev:e=>e.won && e.variant==='cheat'},
+  {id:'chain3', icon:'⛓️', text:'Faça uma corrente de 3 palavras', ev:e=>e.chain>=3},
+  {id:'sudden3',icon:'💀', text:'Acerte 3 seguidas na Morte súbita', ev:e=>e.sudden>=3},
+  {id:'blitz4', icon:'⏱️', text:'Faça 4 palavras numa rodada do Relâmpago', ev:e=>e.blitzWords>=4},
+  {id:'long',   icon:'🦕', text:'Vença com uma palavra de 7 ou 8 letras', ev:e=>e.won && e.len>=7},
+  {id:'short',  icon:'🐜', text:'Vença com uma palavra de 3 ou 4 letras', ev:e=>e.won && e.len<=4},
+  {id:'theme',  icon:'🏷️', text:'', ev:(e,m)=>e.won && e.groups?.includes(m.theme)},
+];
+const missions = { date:null, list:[], prog:{}, done:[], theme:null };
+/* sorteio determinístico das 3 missões do dia (e do grupo da missão de tema) */
+function dailyMissions(date){
+  const ids = MISSIONS.map(m=>m.id), list = [];
+  for(let i=0; list.length<3; i++){
+    const id = ids[Math.floor(seededRand(`dito-missoes:${date}:${i}`)*ids.length)];
+    if(!list.includes(id)) list.push(id);
+  }
+  // só grupos com bastante palavra, senão a missão fica quase impossível
+  const cats = Object.keys(GROUPS).filter(c=>GROUPS[c].length>=20).sort();
+  return { list, theme: cats[Math.floor(seededRand(`dito-missoes:${date}:tema`)*cats.length)] };
+}
+function missionText(id){
+  const m = MISSIONS.find(x=>x.id===id);
+  return id==='theme' ? `Acerte uma palavra do grupo ${GROUP_LABEL[missions.theme]}` : m.text;
+}
+/* garante que as missões são as de hoje (o dia pode virar com a página aberta) */
+function ensureMissions(){
+  const today = todayStr();
+  if(missions.date===today) return;
+  const d = dailyMissions(today);
+  Object.assign(missions, { date:today, list:d.list, theme:d.theme, prog:{}, done:[] });
+  store.set('dito:missions', missions);
+}
+function reportMission(e){
+  ensureMissions();
+  let mudou = false;
+  missions.list.forEach(id=>{
+    if(missions.done.includes(id)) return;
+    const m = MISSIONS.find(x=>x.id===id);
+    if(!m.ev(e, missions)) return;
+    missions.prog[id] = (missions.prog[id]||0) + 1;
+    mudou = true;
+    if(missions.prog[id] >= (m.goal||1)){
+      missions.done.push(id);
+      setTimeout(()=>{ sfx.ach(); say(`🎯 Missão cumprida: ${missionText(id)} (+${MISSION_XP} XP)`, 3200); }, 1200);
+      gainXP(MISSION_XP);
+    }
+  });
+  if(missions.done.length===missions.list.length && mudou) unlock('missao');
+  if(mudou) store.set('dito:missions', missions);
+  updateProfileBtn();
+}
+function renderProfile(){
+  ensureMissions();
+  const lv = levelOf(xpTotal);
+  const next = TITLES.find(([l])=>l>lv.level);
+  document.getElementById('pfLevel').innerHTML = `
+    <div class="lvl"><b>${lv.level}</b><span>nível</span></div>
+    <div class="lvinfo">
+      <b>${lv.title}</b>
+      <div class="xpbar"><div style="width:${Math.round(lv.cur/lv.need*100)}%"></div></div>
+      <small>${lv.cur} / ${lv.need} XP pro nível ${lv.level+1}${next ? ` · próximo título no nível ${next[0]}: ${next[1]}` : ''}</small>
+    </div>`;
+  document.getElementById('pfMissions').innerHTML = missions.list.map(id=>{
+    const m = MISSIONS.find(x=>x.id===id), ok = missions.done.includes(id);
+    const prog = m.goal>1 && !ok ? ` <small>(${missions.prog[id]||0}/${m.goal})</small>` : '';
+    return `<li class="${ok?'ok':''}"><span class="ico">${ok?'✅':m.icon}</span><span>${missionText(id)}${prog}</span><b>+${MISSION_XP}</b></li>`;
+  }).join('');
 }
 function renderAch(){
   const box = document.getElementById('stAch');
@@ -1162,6 +1794,12 @@ function renderStats(){
   document.getElementById('stBlitz').innerHTML = blitzRecords.length
     ? blitzRecordsHTML(null, BLITZ_KEEP)
     : '<p class="empty">Nenhuma rodada ainda — jogue o ⚡ Relâmpago!</p>';
+  const st = dailyStreak();
+  document.getElementById('stDaily').innerHTML =
+    `<div class="streakline">🔥 Sequência: <b>${st.cur}</b> ${st.cur===1?'dia':'dias'} · 🏆 Recorde: <b>${st.best}</b></div>${heatmapHTML()}`;
+  document.getElementById('stRuns').innerHTML =
+    `<span>⛓️ Corrente: <b>${runs.chain}</b> ${runs.chain===1?'elo':'elos'}</span>`
+    + `<span>💀 Morte súbita: <b>${runs.sudden}</b> pts${runs.suddenWords ? ` (${runs.suddenWords} palavras)` : ''}</span>`;
   renderDist();
   renderAch();
 }
@@ -1181,12 +1819,45 @@ function renderDist(){
    MODO DIÁRIO — sorteia (ou restaura) a palavra do dia
    ========================================================= */
 function updateModeTabs(){
-  document.querySelectorAll('#modeTabs .tab').forEach(t=>t.setAttribute('aria-pressed', t.dataset.mode===state.mode));
+  const v = state.mode==='free' ? state.variant : 'normal';
+  document.querySelectorAll('#modeTabs .tab').forEach(t=>{
+    const on = t.dataset.mode==='variant' ? v!=='normal' : t.dataset.mode===state.mode && !(state.mode==='free' && v!=='normal');
+    t.setAttribute('aria-pressed', on);
+  });
+  const tv = document.getElementById('tabVariant');
+  tv.textContent = v==='normal' ? '🎲 Variações' : `${VARIANTS[v].icon} ${VARIANTS[v].name}`;
+}
+/* troca a variação do infinito (aba "🎲 Variações") */
+function setVariant(v){
+  if(!VARIANTS[v]) return;
+  if(state.mode!=='free') setMode('free');
+  if(state.duel) endDuel();
+  // sai da variação anterior: devolve as tentativas que o jogador tinha escolhido
+  if(state.varSavedTries!==undefined){ state.tries = state.varSavedTries; delete state.varSavedTries; }
+  state.variant = v;
+  if(VARIANTS[v].tries) state.varSavedTries = state.tries;
+  initRun();
+  updateModeTabs();
+  buildSegments();
+  newGame();
+  saveSettings();
+  if(v!=='normal') say(`${VARIANTS[v].icon} ${VARIANTS[v].name}`);
+}
+function renderVariantSheet(){
+  document.getElementById('variantList').innerHTML = Object.entries(VARIANTS).map(([id, v])=>`
+    <button class="vcard${state.mode==='free' && state.variant===id ? ' on' : ''}" data-variant="${id}">
+      <span class="ico">${v.icon}</span><span><b>${v.name}</b><small>${v.desc}</small></span>
+    </button>`).join('');
 }
 function setMode(mode){
   if(state.mode===mode) return;
   if(state.duel) endDuel(); // trocar de modo abandona um duelo em andamento
   if(state.mode==='blitz'){ stopBlitzTimer(); state.blitz = null; }
+  // variações só existem no infinito: sair dele volta pro normal
+  if(state.mode==='free' && state.variant!=='normal'){
+    if(state.varSavedTries!==undefined){ state.tries = state.varSavedTries; delete state.varSavedTries; }
+    state.variant = 'normal'; state.run = null;
+  }
   // guarda as escolhas do infinito pra restaurar ao voltar pra ele
   if(state.mode==='free'){ state.savedLen = state.len; state.savedTries = state.tries; state.savedTheme = state.theme; }
   state.mode = mode;
@@ -1205,37 +1876,142 @@ function setMode(mode){
   else newGame();
   saveSettings();
 }
-async function enterDaily(){
-  const today = todayStr();
-  const saved = await store.get('dito:daily');
-  if(saved && saved.date === today) showDailyDone(saved);
-  else newGame(dailyAnswerKey(today));
+/* entra na palavra do dia de uma data (hoje, por padrão, ou um dia do
+   arquivo); se já foi jogada, só mostra o resultado salvo */
+function enterDaily(date=todayStr()){
+  state.dailyDate = date;
+  const saved = dailyHist[date];
+  if(saved) showDailyDone(date, saved);
+  else{
+    newGame(dailyAnswerKey(date));
+    if(date!==todayStr()) say(`📚 Arquivo: palavra de ${fmtDay(date)}`);
+  }
 }
-/* mostra o resultado já jogado hoje, sem permitir nova tentativa */
-function showDailyDone(saved){
+/* =========================================================
+   HISTÓRICO DO DIÁRIO — 'dito:dailyHist' = {data: {s:'win'|'lose', g:[palpites], a:1 se jogado depois (arquivo)}}
+   As cores não são salvas: são recalculadas a partir da palavra do dia.
+   ========================================================= */
+let dailyHist = {};
+const DAILY_START = '2026-01-01'; // primeiro dia disponível no arquivo
+function saveDaily(){
+  const date = state.dailyDate || todayStr();
+  const entry = { s: state.status, g: state.rows.map(r=>r.guess) };
+  if(date!==todayStr()) entry.a = 1;
+  dailyHist[date] = entry;
+  store.set('dito:dailyHist', dailyHist);
+}
+/* dias seguidos acertando o diário (no dia certo, arquivo não conta) */
+function dailyStreak(){
+  const ok = d => dailyHist[d]?.s==='win' && !dailyHist[d].a;
+  const shift = (d, n) => { const x = new Date(d+'T12:00:00'); x.setDate(x.getDate()+n); return dateStr(x); };
+  let cur = 0, day = todayStr();
+  if(!dailyHist[day]) day = shift(day, -1); // ainda não jogou hoje: a sequência vale até ontem
+  while(ok(day)){ cur++; day = shift(day, -1); }
+  let best = 0, run = 0, prev = null;
+  Object.keys(dailyHist).sort().forEach(d=>{
+    if(ok(d)){ run = prev && shift(prev, 1)===d ? run+1 : 1; prev = d; best = Math.max(best, run); }
+    else { run = 0; prev = null; }
+  });
+  return { cur, best };
+}
+function dateStr(d){
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+/* mostra o resultado já jogado de um dia, sem permitir nova tentativa */
+function showDailyDone(date, saved){
   state.gameId++;
-  state.len = saved.len; state.tries = saved.tries;
-  state.rows = saved.rows; state.status = saved.status; state.answerRaw = saved.answerRaw;
-  state.row = saved.rows.length;
+  state.multi = null; state.cheat = null;
+  const key = dailyAnswerKey(date);
+  state.len = DAILY_LEN; state.tries = DAILY_TRIES;
+  state.answer = key; state.answerRaw = DICT[DAILY_LEN].words.get(key);
+  state.rows = saved.g.map(guess=>({guess, res:evaluate(guess, key)}));
+  state.status = saved.s;
+  state.row = state.rows.length;
   drawBoard();
-  saved.rows.forEach((r,ri)=>{
+  state.rows.forEach((r,ri)=>{
     const row = board.children[ri];
     if(!row) return;
     [...row.children].forEach((tile,ci)=>{
-      tile.textContent = r.res[ci]==='correct' ? saved.answerRaw[ci] : r.guess[ci];
+      tile.textContent = r.res[ci]==='correct' ? state.answerRaw[ci] : r.guess[ci];
       tile.classList.add(r.res[ci]);
     });
   });
   kb.innerHTML='';
   hintEl.innerHTML='';
   setGroupHintBtn(false);
-  state.trail = possibilitiesTrail(saved.rows, DICT[saved.len].keys);
+  renderVarBar();
+  state.trail = possibilitiesTrail(state.rows, DICT[DAILY_LEN].keys);
+  const today = date===todayStr();
   renderEndbar(
-    'Você já jogou o Dito de hoje',
-    saved.status==='win' ? `Acertou em ${saved.rows.length} de ${saved.tries}` : 'Não foi dessa vez',
-    { again:false, trail: state.trail, countdown:true }
+    today ? 'Você já jogou o Dito de hoje' : `Dito de ${fmtDay(date)}${saved.a ? ' (arquivo)' : ''}`,
+    saved.s==='win' ? `Acertou em ${state.rows.length} de ${DAILY_TRIES}` : 'Não foi dessa vez',
+    { again:false, trail: state.trail, countdown:today, words:[key],
+      extra: today ? '' : '<button class="btn ghost" id="toToday">📅 Voltar para hoje</button>' }
   );
 }
+
+/* calendário de um mês (arquivo) e mapa das últimas semanas (placar):
+   cada dia jogado aparece com a cor do resultado; clicar abre aquele dia */
+function dayCell(d, label){
+  const h = dailyHist[d], today = todayStr();
+  const off = d>today || d<DAILY_START;
+  const cls = ['day', h ? (h.s==='win' ? 'win' : 'lose') : '', d===today ? 'today' : '', h?.a ? 'late' : ''].join(' ');
+  const tip = h ? `${fmtDay(d)}: ${h.s==='win' ? `acertou em ${h.g.length}` : 'não acertou'}${h.a?' (arquivo)':''}` : fmtDay(d);
+  return `<button class="${cls}" data-date="${d}" title="${tip}"${off?' disabled':''}>${label ?? ''}</button>`;
+}
+function heatmapHTML(weeks=12){
+  const end = new Date(); end.setHours(12);
+  const start = new Date(end); start.setDate(end.getDate() - end.getDay() - 7*(weeks-1));
+  let cols = '';
+  for(let w=0; w<weeks; w++){
+    let cells = '';
+    for(let i=0;i<7;i++){
+      const d = new Date(start); d.setDate(start.getDate() + w*7 + i);
+      cells += dayCell(dateStr(d));
+    }
+    cols += `<div class="hcol">${cells}</div>`;
+  }
+  return `<div class="heat">${cols}</div>`;
+}
+let archiveMonth = null; // {y, m} mostrado no arquivo
+const MONTHS = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+function renderArchive(){
+  const {y, m} = archiveMonth;
+  const first = new Date(y, m, 1), days = new Date(y, m+1, 0).getDate();
+  let cells = '<span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>';
+  for(let i=0;i<first.getDay();i++) cells += '<i></i>';
+  for(let d=1; d<=days; d++) cells += dayCell(dateStr(new Date(y, m, d, 12)), d);
+  const prevOk = dateStr(new Date(y, m, 0)) >= DAILY_START;
+  const nextOk = dateStr(new Date(y, m+1, 1)) <= todayStr();
+  const st = dailyStreak();
+  const jogados = Object.keys(dailyHist).filter(d=>d.startsWith(`${y}-${String(m+1).padStart(2,'0')}`));
+  document.getElementById('archiveBody').innerHTML = `
+    <div class="streakline">🔥 Sequência: <b>${st.cur}</b> ${st.cur===1?'dia':'dias'} · 🏆 Recorde: <b>${st.best}</b></div>
+    <div class="monthnav">
+      <button class="icon-btn" id="arPrev" ${prevOk?'':'disabled'} aria-label="Mês anterior">‹</button>
+      <b>${MONTHS[m]} ${y}</b>
+      <button class="icon-btn" id="arNext" ${nextOk?'':'disabled'} aria-label="Próximo mês">›</button>
+    </div>
+    <div class="cal">${cells}</div>
+    <p class="sub">${jogados.length} ${jogados.length===1?'dia jogado':'dias jogados'} neste mês · ${jogados.filter(d=>dailyHist[d].s==='win').length} acertos</p>`;
+  document.getElementById('arPrev').onclick=()=>{ archiveMonth = m ? {y, m:m-1} : {y:y-1, m:11}; renderArchive(); };
+  document.getElementById('arNext').onclick=()=>{ archiveMonth = m<11 ? {y, m:m+1} : {y:y+1, m:0}; renderArchive(); };
+}
+function openArchive(){
+  const now = new Date();
+  archiveMonth = { y:now.getFullYear(), m:now.getMonth() };
+  renderArchive();
+  document.getElementById('sheetArchive').classList.add('open');
+}
+/* clicar num dia (arquivo ou mapa do placar) abre a palavra daquele dia */
+document.addEventListener('click', e=>{
+  const cell = e.target.closest('.day[data-date]');
+  if(!cell || cell.disabled) return;
+  closeSheets();
+  if(state.mode!=='daily') setMode('daily');
+  enterDaily(cell.dataset.date);
+});
 function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open')); }
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeSheets);
 document.querySelectorAll('.sheet').forEach(s=>s.addEventListener('click',e=>{ if(e.target===s) closeSheets(); }));
@@ -1316,8 +2092,21 @@ document.getElementById('optHard').onchange=e=>{
   saveSettings();
 };
 document.getElementById('tabDaily').onclick=()=>setMode('daily');
-document.getElementById('tabFree').onclick=()=>setMode('free');
+// "Infinito" com uma variação ativa volta pro jogo normal
+document.getElementById('tabFree').onclick=()=> state.mode==='free' && state.variant!=='normal' ? setVariant('normal') : setMode('free');
 document.getElementById('tabBlitz').onclick=()=>setMode('blitz');
+document.getElementById('tabVariant').onclick=()=>{ renderVariantSheet(); document.getElementById('sheetVariant').classList.add('open'); };
+document.getElementById('variantList').addEventListener('click', e=>{
+  const card = e.target.closest('[data-variant]');
+  if(!card) return;
+  closeSheets();
+  setVariant(card.dataset.variant);
+});
+document.getElementById('btnProfile').onclick=()=>{ renderProfile(); document.getElementById('sheetProfile').classList.add('open'); };
+const optVibe = document.getElementById('optVibe');
+optVibe.onchange=e=>{ state.vibe = e.target.checked; if(state.vibe) buzz(40); saveSettings(); };
+// sem a API de vibração (ex.: iPhone), a opção nem aparece
+if(!canVibrate) optVibe.closest('.check').hidden = true;
 
 /* =========================================================
    INÍCIO
@@ -1329,6 +2118,7 @@ document.getElementById('tabBlitz').onclick=()=>setMode('blitz');
     state.hard=!!s.hard;
     state.hints = s.hints !== false;
     state.sound = s.sound !== false;
+    state.vibe = s.vibe !== false;
     state.theme = s.wordTheme || null;
     if(s.theme) document.documentElement.dataset.theme=s.theme;
     document.getElementById('optHard').checked=state.hard;
@@ -1347,6 +2137,26 @@ document.getElementById('tabBlitz').onclick=()=>setMode('blitz');
   const bz = await store.get('dito:blitz');
   if(Array.isArray(bz?.records)) blitzRecords = bz.records.filter(r=>r && r.pts>0).slice(0, BLITZ_KEEP);
   Object.assign(ach, (await store.get('dito:ach')) || {});
+  optVibe.checked = state.vibe;
+  Object.assign(runs, (await store.get('dito:runs')) || {});
+  xpTotal = Number(await store.get('dito:xp')) || 0;
+  const ms = await store.get('dito:missions');
+  if(ms && ms.date===todayStr()) Object.assign(missions, ms);
+  ensureMissions();
+  updateProfileBtn();
+  dailyHist = (await store.get('dito:dailyHist')) || {};
+  // migração: o formato antigo só guardava o resultado do dia ('dito:daily')
+  const old = await store.get('dito:daily');
+  if(old?.date && !dailyHist[old.date] && Array.isArray(old.rows)){
+    dailyHist[old.date] = { s: old.status, g: old.rows.map(r=>r.guess) };
+    store.set('dito:dailyHist', dailyHist);
+  }
+  // variação do infinito salva (não vale se entrar por link de desafio, abaixo)
+  if(s?.mode!=='daily' && VARIANTS[s?.variant] && s.variant!=='normal'){
+    state.variant = s.variant;
+    if(VARIANTS[s.variant].tries) state.varSavedTries = state.tries;
+    initRun();
+  }
   buildThemeSelect();
   buildSegments();
   renderStats();
@@ -1357,6 +2167,8 @@ document.getElementById('tabBlitz').onclick=()=>setMode('blitz');
   if(incoming){
     history.replaceState(null, '', location.pathname + location.search); // não repete ao recarregar
     state.mode = 'free';
+    if(state.varSavedTries!==undefined){ state.tries = state.varSavedTries; delete state.varSavedTries; }
+    state.variant = 'normal'; state.run = null;
     state.len = incoming.len; state.tries = incoming.tries; state.theme = null;
     // trava dicas/modo difícil no valor de quem criou o desafio,
     // guardando as configurações do jogador pra restaurar quando o duelo terminar (endDuel)

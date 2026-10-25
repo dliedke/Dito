@@ -296,6 +296,108 @@ main{
 .records li.me span{color:var(--correct-ink)}
 .empty{font-style:italic}
 
+/* ---------- barra das variações (corrente, morte súbita, passa-e-joga) ---------- */
+#varBar{
+  display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;justify-content:center;
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:8px 16px;font-size:14px;font-weight:500;
+}
+#varBar[hidden]{display:none}
+#varBar b{font-weight:700;font-variant-numeric:tabular-nums}
+#varBar .dim{font-size:12px;color:var(--ink-soft)}
+#varBar .turn{border-radius:6px;padding:2px 9px}
+#varBar .turn.p0{background:rgba(249,115,22,.16)}
+#varBar .turn.p1{background:rgba(168,85,247,.16)}
+
+/* ---------- dueto / quarteto: vários mini-tabuleiros ---------- */
+#board.multi{--gap:4px;gap:16px 16px;align-items:start}
+#board.multi .mini{display:grid;gap:var(--gap);transition:opacity .4s ease}
+#board.multi .mini.solved{opacity:.5}
+#board.multi .tile{border-radius:calc(var(--radius) * .7);border-width:1.5px}
+/* teclas divididas entre tabuleiros: texto com contorno pra ler sobre qualquer cor */
+.key.split{color:var(--ink);text-shadow:0 0 3px var(--bg),0 0 3px var(--bg)}
+
+/* passa-e-joga: bolinha com a cor de quem fez o palpite */
+.row[data-p]{position:relative}
+.row[data-p]::before{
+  content:"";position:absolute;left:-14px;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:50%;
+}
+.row[data-p="0"]::before{background:#f97316}
+.row[data-p="1"]::before{background:#a855f7}
+
+/* ---------- fim de jogo: extras ---------- */
+.endbar .word span{display:inline-block;margin:0 4px}
+.endbar .word span.miss{color:var(--ink-soft);text-decoration:line-through;text-decoration-thickness:2px}
+.endbar .sub b{color:var(--ink)}
+.endbar .actions{flex-wrap:wrap;justify-content:center}
+.dict{font-size:13px;color:var(--ink-soft)}
+.dict a{color:var(--ink);font-weight:700;text-decoration:underline;text-decoration-color:var(--present);text-underline-offset:3px}
+.xpline{font-size:12.5px;font-weight:700;background:var(--key);border-radius:999px;padding:3px 12px}
+.xpline.up{background:var(--correct);color:var(--correct-ink)}
+
+/* ---------- variações (painel) ---------- */
+.vlist{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.vcard{
+  display:flex;gap:12px;align-items:center;text-align:left;
+  border:2px solid transparent;background:var(--key);color:var(--key-ink);
+  border-radius:12px;padding:10px 12px;
+}
+.vcard:hover{border-color:var(--tile-border)}
+.vcard.on{border-color:var(--correct)}
+.vcard .ico{font-size:26px;flex:none;width:34px;text-align:center}
+.vcard b{display:block;font-size:14px}
+.vcard small{display:block;font-size:12px;line-height:1.35;color:var(--ink-soft)}
+
+/* ---------- calendário do diário (arquivo e placar) ---------- */
+.streakline{font-size:14px;margin:4px 0 8px}
+.monthnav{display:flex;align-items:center;justify-content:space-between;margin:6px 0}
+.monthnav b{text-transform:capitalize}
+.monthnav .icon-btn:disabled{opacity:.3;pointer-events:none}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.cal>span{font-size:11px;font-weight:700;color:var(--ink-soft);padding:2px 0}
+.day{
+  border:0;border-radius:7px;background:var(--key);color:var(--key-ink);
+  font-weight:700;font-size:13px;padding:0;
+}
+.cal .day{aspect-ratio:1}
+.day.win{background:var(--correct);color:var(--correct-ink)}
+.day.lose{background:var(--absent);color:var(--absent-ink)}
+.day.late{opacity:.7}
+.day.today{box-shadow:inset 0 0 0 2px var(--present)}
+.day:disabled{opacity:.25;cursor:default}
+.day:not(:disabled):hover{filter:brightness(1.08)}
+.heat{display:flex;gap:3px;justify-content:center;margin-bottom:12px}
+.hcol{display:flex;flex-direction:column;gap:3px}
+.heat .day{width:16px;height:16px;border-radius:4px}
+.runs{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;margin-bottom:12px}
+.sheet-card .sub{font-size:12px}
+
+/* ---------- nível e missões ---------- */
+#btnProfile.pending{position:relative}
+#btnProfile.pending::after{
+  content:"";position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:#f97316;
+}
+.level{display:flex;gap:14px;align-items:center;margin:12px 0}
+.level .lvl{
+  flex:none;width:64px;height:64px;border-radius:16px;background:var(--correct);color:var(--correct-ink);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+.level .lvl b{font-family:"Bricolage Grotesque",sans-serif;font-size:28px;line-height:1}
+.level .lvl span{font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+.lvinfo{flex:1;display:flex;flex-direction:column;gap:5px}
+.lvinfo>b{font-size:16px}
+.lvinfo small{font-size:12px;color:var(--ink-soft);line-height:1.35}
+.xpbar{height:10px;background:var(--key);border-radius:999px;overflow:hidden}
+.xpbar div{height:100%;background:var(--correct);border-radius:999px;transition:width .4s ease}
+.missions{list-style:none;margin:6px 0;padding:0;display:flex;flex-direction:column;gap:5px}
+.missions li{display:flex;gap:10px;align-items:center;background:var(--key);border-radius:10px;padding:9px 12px;font-size:13.5px}
+.missions li .ico{font-size:18px;flex:none}
+.missions li span:nth-child(2){flex:1}
+.missions li small{color:var(--ink-soft)}
+.missions li>b{font-size:12px;color:var(--ink-soft)}
+.missions li.ok{background:var(--correct);color:var(--correct-ink)}
+.missions li.ok>b{color:var(--correct-ink)}
+
 /* confete da vitória */
 .confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:70}
 .btn{
@@ -381,6 +483,11 @@ main{
 .badge.locked .ico{filter:grayscale(1);opacity:.35}
 .badge.locked b{color:var(--ink-soft)}
 @media (max-width:400px){ .key{height:46px;font-size:14px} }
+/* 4 abas de modo no celular: quebram linha em vez de estourar a largura */
+@media (max-width:460px){
+  .mode-tabs{flex-wrap:wrap}
+  .mode-tabs .tab{padding:7px 10px;font-size:12.5px}
+}
 
 /* telas bem estreitas (ex.: iPhone SE) — evita que os botões do topo estourem a largura */
 @media (max-width:380px){
@@ -548,8 +655,20 @@ html[data-theme="doido"] .row.win .tile{animation-name:jump3d;animation-duration
   70%{transform:translateY(2px)}
 }
 
+html[data-theme="doido"] #board.multi{--gap:5px;padding:16px 16px 22px}
+html[data-theme="doido"] #board.multi .tile{border-width:1px}
+html[data-theme="doido"] .key.split{color:#16242c;text-shadow:0 0 3px #fff,0 0 3px #fff}
+html[data-theme="doido"] .vcard,
+html[data-theme="doido"] .missions li,
+html[data-theme="doido"] .xpline,
+html[data-theme="doido"] .day{background:#263943;color:var(--ink)}
+html[data-theme="doido"] .day.win,
+html[data-theme="doido"] .missions li.ok,
+html[data-theme="doido"] .xpline.up{background:var(--correct);color:var(--correct-ink)}
+html[data-theme="doido"] .day.lose{background:#3a4b55;color:var(--absent-ink)}
 html[data-theme="doido"] .hintbar,
 html[data-theme="doido"] .endbar,
+html[data-theme="doido"] #varBar,
 html[data-theme="doido"] #blitzBar,
 html[data-theme="doido"] .sheet-card{
   background:var(--panel);border:1px solid var(--line);border-radius:16px;
@@ -624,6 +743,7 @@ html[data-theme="doido"] .tip::after{background:#e4eeed;color:#233b40;box-shadow
   html[data-theme="doido"] .hint-actions{gap:6px}
   html[data-theme="doido"] .hint-actions .btn{padding:8px 9px;font-size:12px}
   html[data-theme="doido"] #board{--gap:6px;padding:14px 12px 20px;border-radius:19px;transform:none}
+  html[data-theme="doido"] #board.multi{--gap:4px;padding:10px 8px 14px}
   html[data-theme="doido"] #keyboard{width:calc(100% - 16px);margin-bottom:8px;padding-top:10px;padding-left:max(7px, env(safe-area-inset-left));padding-right:max(7px, env(safe-area-inset-right));border-radius:16px}
   html[data-theme="doido"] .krow{gap:4px}
   html[data-theme="doido"] .key{height:46px;border-radius:6px}

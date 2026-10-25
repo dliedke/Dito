@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=22">
+<link rel="stylesheet" href="style.css?v=23">
 </head>
 <body>
 
@@ -21,6 +21,7 @@
   <div class="brand" aria-label="Dito"><span>D</span><span>I</span><span>T</span><span>O</span></div>
   <div class="tools">
     <button class="icon-btn" id="btnConfig" aria-expanded="true">Ajustes</button>
+    <button class="icon-btn" id="btnProfile" title="Nível e missões do dia">🎯 Nv 1</button>
     <button class="icon-btn" id="btnStats">Placar</button>
     <button class="icon-btn" id="btnHelp" aria-label="Como jogar">?</button>
     <button class="icon-btn" id="btnSound" aria-label="Ativar ou desativar som" aria-pressed="true">🔊</button>
@@ -45,6 +46,7 @@
     <button type="button" class="tip" aria-label="O que é: Dicas no fim" data-tip="Nas 2 últimas tentativas o jogo dá uma ajuda: primeiro diz uma letra que está na palavra, depois deixa marcada a posição de uma letra.">i</button></label>
   <label class="check"><input type="checkbox" id="optHard"> Modo difícil
     <button type="button" class="tip end" aria-label="O que é: Modo difícil" data-tip="Toda pista revelada precisa ser usada: as letras verdes ficam travadas no lugar e as azuis têm que aparecer no palpite seguinte. Só dá pra ligar no começo da partida.">i</button></label>
+  <label class="check"><input type="checkbox" id="optVibe" checked> Vibração</label>
 </section>
 
 <main>
@@ -52,6 +54,7 @@
     <button class="tab" id="tabDaily" data-mode="daily" title="Uma palavra de 5 letras por dia, a mesma pra todo mundo">📅 Diário</button>
     <button class="tab" id="tabFree" data-mode="free" aria-pressed="true" title="Quantas partidas quiser, com as letras, tentativas e tema dos Ajustes">♾️ Infinito</button>
     <button class="tab" id="tabBlitz" data-mode="blitz" title="Contra o relógio: acerte o máximo de palavras em 2min30">⚡ Relâmpago</button>
+    <button class="tab" id="tabVariant" data-mode="variant" title="Dueto, Quarteto, Trapaceiro, Corrente, Morte súbita e Passa-e-joga">🎲 Variações</button>
   </div>
   <div class="hint-actions">
     <button class="btn ghost" id="btnGroupHint" title="Mostra o grupo temático da palavra secreta (uma vez por partida)">💡 Dica de grupo</button>
@@ -59,6 +62,7 @@
     <button class="btn ghost" id="btnChallenge" title="Copia um link com esta palavra pra um amigo tentar a mesma">🔗 Desafiar</button>
   </div>
   <div id="blitzBar" hidden aria-live="off"></div>
+  <div id="varBar" hidden aria-live="polite"></div>
   <div id="hint" aria-live="polite"></div>
   <div id="board" role="grid" aria-label="Tabuleiro"></div>
   <div id="end"></div>
@@ -84,6 +88,10 @@
     <p>No <b>⚡ Relâmpago</b> você corre contra o relógio: 2min30 para acertar o máximo de palavras de 5 letras. Cada acerto devolve <b>30 segundos</b> e vale pontos: 100 + 20 por tentativa que sobrou + 25 por acerto seguido (combo 🔥). Seus 10 melhores resultados ficam salvos neste navegador, no Placar. Dá pra pular uma palavra difícil pagando 10 segundos. O relógio só começa quando você digita a primeira letra.</p>
     <p>No fim de cada partida, a linha <b>🔍</b> mostra quantas palavras ainda eram possíveis depois de cada palpite — dá pra ver qual chute foi mais esperto.</p>
     <p>O botão <b>☀️ / 🌙 / 🌀</b> no topo alterna o visual: claro, escuro e <b>3D</b>, com cores suaves, peças em relevo e teclas que afundam ao apertar. No computador, o tabuleiro acompanha o mouse com uma inclinação sutil.</p>
+    <p>Na aba <b>🎲 Variações</b> tem jeitos diferentes de jogar o Infinito: <b>🧩 Dueto</b> e <b>🀄 Quarteto</b> (2 ou 4 palavras ao mesmo tempo, cada palpite vale para todas — as teclas ficam divididas com a cor de cada tabuleiro), <b>😈 Trapaceiro</b> (o jogo foge do seu palpite trocando a palavra), <b>⛓️ Corrente</b> (a palavra acertada vira o 1º palpite da próxima), <b>💀 Morte súbita</b> (3 tentativas, pontos por acerto, o primeiro erro acaba a rodada) e <b>👥 Passa-e-joga</b> (duas pessoas revezando no mesmo aparelho).</p>
+    <p>No Diário, o botão <b>📚 Arquivo</b> abre um calendário para jogar os dias que você perdeu. A sequência de dias seguidos acertando aparece no Placar.</p>
+    <p>Toda partida rende <b>XP</b> e sobe o seu nível. Em <b>🎯</b> ficam as <b>3 missões do dia</b> (iguais pra todo mundo), que dão XP extra.</p>
+    <p>No fim da partida dá pra ver o significado da palavra no Dicio e compartilhar o resultado como texto ou como <b>🖼️ imagem</b> (só as cores, sem entregar a palavra).</p>
     <p>Jogando, você desbloqueia <b>🏆 conquistas</b> (acertar de primeira, vencer no modo difícil, explorar vários temas...). Veja todas no <b>Placar</b>.</p>
     <button class="btn ghost close" data-close>Fechar</button>
   </div>
@@ -101,6 +109,10 @@
     </div>
     <p>Distribuição de tentativas (vitórias)</p>
     <div class="dist" id="stDist"></div>
+    <p>📅 Palavra do dia</p>
+    <div id="stDaily"></div>
+    <p>🎲 Recordes das variações</p>
+    <div class="runs" id="stRuns"></div>
     <p>⚡ Seus recordes no Relâmpago</p>
     <div id="stBlitz"></div>
     <p>Conquistas <b id="stAchCount"></b></p>
@@ -109,6 +121,35 @@
   </div>
 </div>
 
-<script src="script.js?v=21"></script>
+<div class="sheet" id="sheetVariant">
+  <div class="sheet-card">
+    <h2>🎲 Variações</h2>
+    <p>Jeitos diferentes de jogar o Infinito. As letras e o tema dos Ajustes continuam valendo.</p>
+    <div class="vlist" id="variantList"></div>
+    <button class="btn ghost close" data-close>Fechar</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheetArchive">
+  <div class="sheet-card">
+    <h2>📚 Arquivo do diário</h2>
+    <p>Toque num dia para jogar a palavra dele (ou rever o resultado). Dias jogados pelo arquivo não contam na sequência.</p>
+    <div id="archiveBody"></div>
+    <button class="btn ghost close" data-close>Fechar</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheetProfile">
+  <div class="sheet-card">
+    <h2>🎯 Nível e missões</h2>
+    <div class="level" id="pfLevel"></div>
+    <p>Missões de hoje <small>(renovam à meia-noite)</small></p>
+    <ul class="missions" id="pfMissions"></ul>
+    <p>Cada partida dá XP: vitórias valem mais com tentativas sobrando, palavras longas, modo difícil e variações difíceis. Perder ainda dá um pouquinho.</p>
+    <button class="btn ghost close" data-close>Fechar</button>
+  </div>
+</div>
+
+<script src="script.js?v=22"></script>
 </body>
 </html>

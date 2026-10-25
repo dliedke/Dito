@@ -714,8 +714,23 @@ function press(k){
     renderCurrent();
   }
 }
+/* flechas ← → andam com o cursor pela linha, pulando as casinhas travadas
+   (verde-limão), que nunca podem receber o cursor */
+function moveCursor(dir){
+  if(state.status!=='playing') return;
+  let i = state.cursor + dir;
+  while(i >= 0 && i < state.len && state.locked.has(i)) i += dir;
+  if(i < 0 || i >= state.len) return;
+  state.cursor = i;
+  renderCurrent();
+}
 document.addEventListener('keydown', e=>{
   if(e.metaKey||e.ctrlKey||e.altKey) return;
+  if((e.key==='ArrowLeft' || e.key==='ArrowRight') && !document.querySelector('.sheet.open')
+     && !e.target.closest('input,select,textarea')){
+    e.preventDefault();
+    return moveCursor(e.key==='ArrowLeft' ? -1 : 1); // aqui segurar a tecla pode repetir
+  }
   if(e.repeat) return; // ignora repetição automática ao segurar a tecla (Enter em especial)
   if(document.querySelector('.sheet.open')){ if(e.key==='Escape') closeSheets(); return; }
   if(e.key==='Enter') press('↵');

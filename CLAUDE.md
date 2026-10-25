@@ -60,7 +60,8 @@ jogo, painéis/tema, início). Pontos importantes:
   difícil. Desligar o modo difícil no meio da partida limpa `state.locked`. Casinhas travadas nunca devem ser editáveis nem
   apagáveis — qualquer mudança em `press()`/`renderCurrent()` que mexa em
   cursor ou backspace precisa preservar essa invariante, incluindo o caso de
-  borda em que a **última** casinha da linha é a travada.
+  borda em que a **última** casinha da linha é a travada. As flechas ← → (`moveCursor()`)
+  também pulam as travadas.
 - **`GROUPS_RAW` / `GROUPS` / `wordGroup` / `GROUP_LABEL`**: grupos temáticos
   usados pelo botão "💡 Dica de grupo" (`useGroupHint()`, uso único por
   partida). `GROUPS_RAW` é categoria → string de palavras **normalizadas**,

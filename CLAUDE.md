@@ -72,6 +72,17 @@ jogo, painéis/tema, início). Pontos importantes:
   dois grupos, nenhum grupo pode listar palavra que não existe em `DICT`,
   todo grupo precisa de pelo menos 2 palavras (senão não há "outra palavra"
   para sugerir) e toda categoria precisa de um `GROUP_LABEL`.
+- **`EXTRA`**: segunda leva de palavras (com acento, por categoria de
+  `GROUPS_RAW`), mesclada em `DICT` depois do `RAW` — só entra o que ainda não
+  existe, e o grupo vem da categoria (`extraGroup`, aplicado em `GROUPS`/
+  `wordGroup`). Palavras novas devem ir no `EXTRA` da categoria certa (as
+  invariantes de grupo acima continuam valendo). `BASE_COUNT[n]` guarda quantas
+  palavras havia antes do `EXTRA`: `dailyAnswerKey()` usa só essas para datas
+  antes de `DAILY_EXTRA_FROM`, senão a palavra de dias já jogados mudaria e o
+  histórico/arquivo do diário ficaria com cores erradas. Como o sorteio do
+  diário depende da ordem/tamanho de `DICT[5].keys`, **acrescentar palavras de
+  5 letras muda a palavra dos dias futuros** — se for mexer de novo, avançar
+  `DAILY_EXTRA_FROM`/congelar o pool da mesma forma.
 - **`state.gameId`**: contador incrementado a cada `newGame()`. Todo
   `setTimeout` de `submit()` (revelação das casinhas, teclado, dica
   automática, tela de fim) precisa capturar o `gameId` atual e desistir se

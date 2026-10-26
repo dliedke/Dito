@@ -236,14 +236,15 @@ function themePool(len, theme){
 /* =========================================================
    VARIAÇÕES DO INFINITO — escolhidas na aba "🎲 Variações".
    tries: tentativas fixas (calculadas pelo tamanho); noAssist: sem dicas
-   automáticas, sem dica de grupo e sem modo difícil (não fazem sentido ali)
+   automáticas, sem dica de grupo e sem modo difícil (não fazem sentido ali);
+   noHard: dicas valem, só o modo difícil fica de fora
    ========================================================= */
 const VARIANTS = {
   normal: {icon:'♾️', name:'Normal',       desc:'O jogo de sempre, com as letras, tentativas e tema dos Ajustes.'},
-  duo:    {icon:'🧩', name:'Dueto',        boards:2, tries:len=>len+2, noAssist:true,
-           desc:'Duas palavras ao mesmo tempo: cada palpite vale para as duas. Tentativas = letras + 2.'},
-  quad:   {icon:'🀄', name:'Quarteto',     boards:4, tries:len=>len+6, noAssist:true,
-           desc:'Quatro palavras de uma vez! Cada palpite vale para todas. Tentativas = letras + 6.'},
+  duo:    {icon:'🧩', name:'Dueto',        boards:2, tries:len=>len+2, noHard:true,
+           desc:'Duas palavras ao mesmo tempo: cada palpite vale para as duas. Tentativas = letras + 2. Dica de grupo e dicas no fim valem para cada palavra.'},
+  quad:   {icon:'🀄', name:'Quarteto',     boards:4, tries:len=>len+6, noHard:true,
+           desc:'Quatro palavras de uma vez! Cada palpite vale para todas. Tentativas = letras + 6. Dica de grupo e dicas no fim valem para cada palavra.'},
   cheat:  {icon:'😈', name:'Trapaceiro',   tries:()=>7, noAssist:true,
            desc:'O jogo não escolhe a palavra: a cada palpite ele foge, ficando com o maior grupo de palavras possíveis. Encurrale-o em 7 tentativas.'},
   chain:  {icon:'⛓️', name:'Corrente',
@@ -258,7 +259,8 @@ const SUDDEN_PTS = [500, 250, 100];
 function variant(){ return state.mode==='free' ? state.variant : 'normal'; }
 function noAssist(){ return !!VARIANTS[variant()].noAssist; }
 function hintsOn(){ return state.hints && !noAssist(); }
-function hardOn(){ return state.hard && !noAssist(); }
+function hardAllowed(){ const v = VARIANTS[variant()]; return !v.noAssist && !v.noHard; }
+function hardOn(){ return state.hard && hardAllowed(); }
 /* recordes da corrente e da morte súbita (localStorage 'dito:runs') */
 const runs = { chain:0, sudden:0, suddenWords:0 };
 
@@ -359,10 +361,11 @@ function buildSegments(){
   document.getElementById('selTheme').disabled = lockTheme;
   // num duelo por link, dicas/modo difícil ficam travados
   // com o valor de quem criou o desafio — senão os dois lados não jogam a mesma prova.
-  // Nas variações sem ajuda (dueto, quarteto, trapaceiro) eles não valem.
+  // Nas variações sem ajuda (trapaceiro) eles não valem; no dueto/quarteto só
+  // o modo difícil fica de fora.
   ['optHints','optHard'].forEach(id=>{
     const el = document.getElementById(id);
-    const off = state.duel || noAssist();
+    const off = state.duel || (id==='optHints' ? noAssist() : !hardAllowed());
     el.disabled = off;
     el.closest('.check').classList.toggle('locked', off);
   });
@@ -455,11 +458,20 @@ function newGame(forcedKey){
   // em vez de travar (o seletor de tema já evita chegar aqui na prática)
   const usable = pool.length ? pool : DICT[state.len].keys;
   const pick = list => list[Math.floor(Math.random()*list.length)];
+  // dueto/quarteto sorteiam só do dicionário original (as palavras mais
+  // conhecidas): com várias de uma vez, uma palavra rara deixava quase impossível
+  const nb = VARIANTS[v].boards;
+  let multiPool = null;
+  if(nb){
+    const base = new Set(DICT[state.len].keys.slice(0, BASE_COUNT[state.len]));
+    const common = usable.filter(k=>base.has(k));
+    multiPool = common.length>=nb ? common : usable.length>=nb ? usable : DICT[state.len].keys;
+  }
   let key;
   if(forcedKey){
     key = forcedKey; // palavra do dia ou palavra de um desafio recebido por link
   } else {
-    key = pick(usable);
+    key = pick(multiPool || usable);
     // corrente: a resposta nova não pode ser a mesma que vai entrar de 1º palpite
     const prev = v==='chain' && state.run?.prev;
     for(let i=0; prev && key===prev && i<20; i++) key = pick(usable);
@@ -468,13 +480,12 @@ function newGame(forcedKey){
   state.answerRaw = DICT[state.len].words.get(key);
   // dueto/quarteto: sorteia palavras diferentes entre si
   state.multi = null;
-  const nb = VARIANTS[v].boards;
   if(nb){
-    const base = usable.length>=nb ? usable : DICT[state.len].keys;
     const keys = [key];
-    while(keys.length<nb){ const k = pick(base); if(!keys.includes(k)) keys.push(k); }
+    while(keys.length<nb){ const k = pick(multiPool); if(!keys.includes(k)) keys.push(k); }
     state.multi = { keys, raws:keys.map(k=>DICT[state.len].words.get(k)),
-      res:keys.map(()=>[]), solved:keys.map(()=>false), solvedAt:keys.map(()=>0) };
+      res:keys.map(()=>[]), solved:keys.map(()=>false), solvedAt:keys.map(()=>0),
+      ghosts:keys.map(()=>({})) }; // letras reveladas pelas dicas, por tabuleiro
   }
   // trapaceiro: começa com todas as palavras possíveis; a resposta só se
   // define de verdade quando sobrar uma (ver cheatDodge)
@@ -666,6 +677,7 @@ function maybeHint(){
   const nivel = restam === 2 ? 1 : 2;
   if(state.hintLevel >= nivel) return;
   state.hintLevel = nivel;
+  if(state.multi) return hintMulti(nivel);
 
   if(nivel === 1){
     // 1ª dica: aponta uma letra da palavra que o jogador ainda não descobriu
@@ -699,6 +711,28 @@ function revelarPosicao(nivel){
   showHint(`${abertura} A <b>${idx+1}ª letra</b> é <b>${letra}</b> — já deixei marcada no tabuleiro.`);
 }
 
+/* dueto/quarteto: em vez de falar de uma palavra só, marca no tabuleiro uma
+   letra certa (com a posição) de cada palavra que ainda falta */
+function hintMulti(nivel){
+  const m = state.multi;
+  let marcou = 0;
+  m.keys.forEach((k,b)=>{
+    if(m.solved[b]) return;
+    const ghosts = m.ghosts[b];
+    const feitas = new Set(Object.keys(ghosts).map(Number));
+    m.res[b].forEach(r=>r.forEach((v,i)=>{ if(v==='correct') feitas.add(i); }));
+    const livres = [...Array(state.len).keys()].filter(i=>!feitas.has(i));
+    if(!livres.length) return;
+    const i = livres[Math.floor(Math.random()*livres.length)];
+    ghosts[i] = m.raws[b][i].toUpperCase();
+    marcou++;
+  });
+  renderCurrent();
+  const abertura = nivel===2 ? 'Última chance.' : 'Faltam 2 tentativas.';
+  showHint(marcou ? `${abertura} Marquei no tabuleiro uma letra certa de cada palavra que falta.`
+    : 'Você já tem todas as letras no lugar certo. É só confirmar.');
+}
+
 /* botão manual "dica de grupo": mostra outra palavra do mesmo grupo temático
    da resposta, ou, se a palavra não tiver grupo conhecido, revela uma letra
    extra sem dizer a posição. Uso único por partida. */
@@ -710,6 +744,13 @@ function useGroupHint(){
   if(state.status!=='playing' || state.groupHintUsed) return;
   state.groupHintUsed = true;
   setGroupHintBtn(false);
+
+  // dueto/quarteto: o grupo de cada palavra aparece em cima do tabuleiro dela
+  if(state.multi){
+    state.multi.keys.forEach((k,b)=>{ board.children[b].dataset.group = GROUP_LABEL[wordGroup[k]] || '?'; });
+    showHint('O grupo de cada palavra está escrito em cima do tabuleiro dela.');
+    return;
+  }
 
   const cat = wordGroup[state.answer];
   const opcoes = cat ? GROUPS[cat].filter(w=>w!==state.answer) : [];
@@ -814,21 +855,21 @@ document.addEventListener('keydown', e=>{
 function curTargets(){
   if(state.multi){
     const m = state.multi;
-    return m.keys.map((k,b)=> m.solved[b] ? null : {row:rowEl(state.row,b), raw:m.raws[b], res:m.res[b]})
+    return m.keys.map((k,b)=> m.solved[b] ? null : {row:rowEl(state.row,b), raw:m.raws[b], res:m.res[b], ghosts:m.ghosts[b]})
       .filter(t=>t && t.row);
   }
   const row = board.children[state.row];
-  return row ? [{row, raw:state.answerRaw, res:state.rows.map(r=>r.res)}] : [];
+  return row ? [{row, raw:state.answerRaw, res:state.rows.map(r=>r.res), ghosts:state.ghosts}] : [];
 }
 function renderCurrent(){
-  curTargets().forEach(({row, raw, res})=>{
+  curTargets().forEach(({row, raw, res, ghosts})=>{
     // fora do modo difícil as verdes já descobertas não são travadas: aparecem
     // como lembrete apagadinho (igual à dica de posição) até o jogador digitar
     const known = {};
     if(!hardOn()) res.forEach(r=>r.forEach((v,i)=>{ if(v==='correct') known[i] = raw[i].toUpperCase(); }));
     [...row.children].forEach((tile,i)=>{
       const ch = state.cur[i];
-      const ghost = state.ghosts[i] || known[i];
+      const ghost = ghosts[i] || known[i];
       const locked = state.locked.has(i);
       // travada (verde-limão): mostra sempre a letra com acento/til da resposta.
       // state.cur guarda a letra sem acento (é o que é comparado com o dicionário),
@@ -1036,6 +1077,7 @@ function submitMulti(g){
     state.cur = Array(state.len).fill('');
     state.cursor = 0;
     renderCurrent();
+    setTimeout(()=>{ if(state.gameId===gameId) maybeHint(); }, delay + 150);
   }
   markActiveRow();
   // rola até a linha atual do último tabuleiro aberto (o mais baixo na tela)
@@ -2162,7 +2204,11 @@ document.getElementById('btnSound').onclick=e=>{
 };
 document.getElementById('optHints').onchange=e=>{
   state.hints=e.target.checked;
-  if(!state.hints){ hintEl.innerHTML=''; state.hintKey=null; state.ghosts={}; renderCurrent(); paintKeyboard(); }
+  if(!state.hints){
+    hintEl.innerHTML=''; state.hintKey=null; state.ghosts={};
+    if(state.multi) state.multi.ghosts = state.multi.keys.map(()=>({}));
+    renderCurrent(); paintKeyboard();
+  }
   else maybeHint();
   saveSettings();
 };

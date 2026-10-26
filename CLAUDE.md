@@ -208,7 +208,13 @@ jogo, painéis/tema, início). Pontos importantes:
     dentro de `#board.multi`); `curTargets()` diz em quais linhas o palpite
     atual é desenhado. Teclas com estados diferentes por tabuleiro ganham
     `.split` + gradiente (`splitKeyBg()`), na mesma disposição dos tabuleiros.
-    `sizeMultiBoard()` ajusta `--tile` e colunas no resize.
+    `sizeMultiBoard()` ajusta `--tile` e colunas no resize. Têm `noHard`
+    (dicas valem, modo difícil não — `hardAllowed()`): as respostas saem só
+    do dicionário original (`BASE_COUNT`, palavras mais conhecidas); a dica
+    de grupo põe o nome do grupo em cima de cada tabuleiro
+    (`.mini[data-group]::before`, pseudo-elemento pra não mexer nos índices
+    de `rowEl`) e as dicas no fim (`hintMulti()`) marcam uma letra com
+    posição por tabuleiro aberto, em `state.multi.ghosts[b]`.
   - **Trapaceiro**: `cheatDodge(g)` troca `state.answer` **antes** de avaliar,
     ficando com o maior grupo de `state.cheat.cands` por assinatura de cores;
     o resto do fluxo é o normal.

@@ -313,6 +313,10 @@ main{
 #board.multi{--gap:4px;gap:16px 16px;align-items:start}
 #board.multi .mini{display:grid;gap:var(--gap);transition:opacity .4s ease}
 #board.multi .mini.solved{opacity:.5}
+/* dica de grupo: nome do grupo em cima de cada tabuleiro (pseudo-elemento,
+   pra não mudar os índices das linhas usados por rowEl) */
+#board.multi .mini[data-group]::before{content:attr(data-group);justify-self:center;font-size:12px;font-weight:600;
+  color:var(--ink-soft);background:var(--key);border-radius:999px;padding:1px 10px;margin-bottom:2px}
 #board.multi .tile{border-radius:calc(var(--radius) * .7);border-width:1.5px}
 /* teclas divididas entre tabuleiros: texto com contorno pra ler sobre qualquer cor */
 .key.split{color:var(--ink);text-shadow:0 0 3px var(--bg),0 0 3px var(--bg)}

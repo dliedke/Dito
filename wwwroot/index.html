@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=24">
+<link rel="stylesheet" href="style.css?v=25">
 </head>
 <body>
 
@@ -92,6 +92,7 @@
     <p>No Diário, o botão <b>📚 Arquivo</b> abre um calendário para jogar os dias que você perdeu. A sequência de dias seguidos acertando aparece no Placar.</p>
     <p>Toda partida rende <b>XP</b> e sobe o seu nível. Em <b>🎯</b> ficam as <b>3 missões do dia</b> (iguais pra todo mundo), que dão XP extra.</p>
     <p>No fim da partida dá pra ver o significado da palavra no Dicio e compartilhar o resultado como texto ou como <b>🖼️ imagem</b> (só as cores, sem entregar a palavra).</p>
+    <p>Em <b>🎯</b> dá pra <b>entrar com o Google</b> e sincronizar XP, conquistas, placar, recordes e o histórico do diário entre celular e computador (tudo fica numa pasta escondida do seu próprio Google Drive). Se os aparelhos discordarem, nada se perde: fica o maior XP e todas as conquistas e recordes dos dois.</p>
     <p>Jogando, você desbloqueia <b>🏆 conquistas</b> (acertar de primeira, vencer no modo difícil, explorar vários temas...). Veja todas no <b>Placar</b>.</p>
     <button class="btn ghost close" data-close>Fechar</button>
   </div>
@@ -146,10 +147,11 @@
     <p>Missões de hoje <small>(renovam à meia-noite)</small></p>
     <ul class="missions" id="pfMissions"></ul>
     <p>Cada partida dá XP: vitórias valem mais com tentativas sobrando, palavras longas, modo difícil e variações difíceis. Perder ainda dá um pouquinho.</p>
+    <div class="sync" id="pfSync" hidden></div>
     <button class="btn ghost close" data-close>Fechar</button>
   </div>
 </div>
 
-<script src="script.js?v=26"></script>
+<script src="script.js?v=27"></script>
 </body>
 </html>

@@ -401,6 +401,13 @@ main{
 .missions li>b{font-size:12px;color:var(--ink-soft)}
 .missions li.ok{background:var(--correct);color:var(--correct-ink)}
 .missions li.ok>b{color:var(--correct-ink)}
+/* sincronização com a conta Google (dentro do 🎯) */
+.sync{border-top:1px solid var(--key);margin-top:12px;padding-top:4px}
+.sync .who{display:flex;gap:10px;align-items:center;margin:10px 0}
+.sync .who img,.sync .who .ico{width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:20px;background:var(--key)}
+.sync .who>span{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.sync .who b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sync .who small{font-size:12px;color:var(--ink-soft)}
 
 /* confete da vitória */
 .confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:70}

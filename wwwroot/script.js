@@ -267,7 +267,7 @@ const runs = { chain:0, sudden:0, suddenWords:0 };
 /* armazenamento local (localStorage), com fallback silencioso caso indisponível */
 const store = {
   async get(k){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; }catch(e){ return null; } },
-  async set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+  async set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} syncDirty(k); }
 };
 
 /* =========================================================
@@ -1811,6 +1811,7 @@ function renderProfile(){
     const prog = m.goal>1 && !ok ? ` <small>(${missions.prog[id]||0}/${m.goal})</small>` : '';
     return `<li class="${ok?'ok':''}"><span class="ico">${ok?'✅':m.icon}</span><span>${missionText(id)}${prog}</span><b>+${MISSION_XP}</b></li>`;
   }).join('');
+  renderSyncBox();
 }
 function renderAch(){
   const box = document.getElementById('stAch');
@@ -2230,16 +2231,287 @@ document.getElementById('variantList').addEventListener('click', e=>{
   closeSheets();
   setVariant(card.dataset.variant);
 });
-document.getElementById('btnProfile').onclick=()=>{ renderProfile(); document.getElementById('sheetProfile').classList.add('open'); };
+document.getElementById('btnProfile').onclick=()=>{
+  renderProfile();
+  document.getElementById('sheetProfile').classList.add('open');
+  // aproveita pra puxar o que outro aparelho possa ter mandado
+  if(sync.user && Date.now()-sync.pulled > 30000) syncNow();
+};
 const optVibe = document.getElementById('optVibe');
 optVibe.onchange=e=>{ state.vibe = e.target.checked; if(state.vibe) buzz(40); saveSettings(); };
 // sem a API de vibração (ex.: iPhone), a opção nem aparece
 if(!canVibrate) optVibe.closest('.check').hidden = true;
 
 /* =========================================================
+   SINCRONIZAÇÃO NA NUVEM — login com Google e o progresso (XP, conquistas,
+   placar, recordes, diário e missões) num arquivo escondido no Google Drive
+   da própria pessoa (appDataFolder, escopo drive.appdata): nada de servidor.
+   Os Ajustes ficam só neste aparelho. O localStorage continua sendo a fonte
+   do jogo; a nuvem só é mesclada nele (mergeProgress) e recebe o resultado.
+   Conflito entre aparelhos nunca perde progresso: fica o maior XP/contador,
+   todas as conquistas, recordes e dias do diário (o melhor resultado de cada).
+   Login: OAuth do Google por redirecionamento (#access_token=... na volta).
+   O token vale ~1h; vencido, a próxima abertura do jogo renova sozinha com
+   prompt=none (um redirecionamento rápido, sem tela, se ainda houver sessão
+   no Google). Só o Client ID vai aqui — o client secret nunca entra no site.
+   ========================================================= */
+const GOOGLE_CLIENT_ID = '737867009905-v8ubho9jtgd1nd4ilksi46tbbr88v8fv.apps.googleusercontent.com';
+const SYNC_SCOPE = 'openid email profile https://www.googleapis.com/auth/drive.appdata';
+const SYNC_FILE = 'dito.json';
+const DRIVE = 'https://www.googleapis.com/drive/v3/files', DRIVE_UP = 'https://www.googleapis.com/upload/drive/v3/files';
+// precisa bater com o "URI de redirecionamento" do cliente OAuth (https://dliedke.github.io/Dito/)
+const SYNC_REDIRECT = location.origin + location.pathname.replace(/index\.html$/, '');
+const SYNC_KEYS = ['dito:xp','dito:ach','dito:stats','dito:blitz','dito:runs','dito:dailyHist','dito:missions'];
+// user/token/exp ficam em localStorage 'dito:sync'
+const sync = { user:null, token:null, exp:0, timer:null, busy:null, again:false, pulled:0, status:'off' };
+
+/* JSON com as chaves dos objetos em ordem, pra comparar progresso sem falso "mudou" */
+function canon(v){
+  return JSON.stringify(v, (k,x)=> x && typeof x==='object' && !Array.isArray(x)
+    ? Object.fromEntries(Object.keys(x).sort().map(c=>[c, x[c]])) : x);
+}
+/* progresso local no mesmo formato que vai pra nuvem */
+function progressSnapshot(){
+  const { played, wins, streak, dist, groups, blitzBest } = stats;
+  const { date, list, prog, done, theme } = missions;
+  return { xp:xpTotal, ach:{...ach}, stats:{played, wins, streak, dist, groups, blitzBest},
+           blitz:blitzRecords, runs:{...runs}, dailyHist, missions:{date, list, prog, done, theme} };
+}
+/* junta o progresso local (a) com o da nuvem (b). Empate fica com a nuvem,
+   senão dois aparelhos ficariam se desmentindo e regravando sem parar */
+function mergeProgress(a, b){
+  if(!b) return a;
+  const max = (x,y) => Math.max(Number(x)||0, Number(y)||0);
+  const sa = a.stats||{}, sb = b.stats||{};
+  // a sequência atual não é recorde (zera ao perder): vale a de quem jogou mais partidas
+  const newer = (sa.played||0) > (sb.played||0) ? sa : sb;
+  const stats = {
+    played: max(sa.played, sb.played), wins: max(sa.wins, sb.wins), streak: newer.streak||0,
+    dist: Array.from({length:8}, (_,i)=>max(sa.dist?.[i], sb.dist?.[i])),
+    groups: [...new Set([...(sa.groups||[]), ...(sb.groups||[])])].sort(),
+    blitzBest: max(sa.blitzBest, sb.blitzBest),
+  };
+  // conquistas: todas as dos dois lados, com a data mais antiga
+  const ach = {...(b.ach||{})};
+  for(const [id,d] of Object.entries(a.ach||{})) if(!ach[id] || d<ach[id]) ach[id] = d;
+  // relâmpago: junta as rodadas (mesmo id = mesma rodada) e fica com as melhores
+  const rodadas = new Map();
+  [...(a.blitz||[]), ...(b.blitz||[])].forEach(r=>{ if(r?.pts>0) rodadas.set(r.id, r); });
+  const blitz = [...rodadas.values()].sort((x,y)=>y.pts-x.pts || x.id-y.id).slice(0, BLITZ_KEEP);
+  const ra = a.runs||{}, rb = b.runs||{};
+  const sud = (ra.sudden||0) > (rb.sudden||0) ? ra : rb;
+  const runs = { chain: max(ra.chain, rb.chain), sudden: sud.sudden||0, suddenWords: sud.suddenWords||0 };
+  // diário: o mesmo dia jogado nos dois aparelhos fica com o melhor resultado
+  // (vitória > derrota; no dia certo > pelo arquivo; menos tentativas)
+  const rank = e => (e.s==='win' ? 2 : 0) + (e.a ? 0 : 1);
+  const dailyHist = {...(b.dailyHist||{})};
+  for(const [d,e] of Object.entries(a.dailyHist||{})){
+    const o = dailyHist[d];
+    if(!o || rank(e)>rank(o) || (rank(e)===rank(o) && e.s==='win' && e.g.length<o.g.length)) dailyHist[d] = e;
+  }
+  // missões: as do dia mais recente; no mesmo dia, o maior progresso de cada
+  const ma = a.missions||{}, mb = b.missions||{};
+  let missions = (ma.date||'') > (mb.date||'') ? ma : mb;
+  if(ma.date && ma.date===mb.date){
+    const list = mb.list||[], prog = {};
+    list.forEach(id=>{ const p = max(ma.prog?.[id], mb.prog?.[id]); if(p) prog[id] = p; });
+    const done = list.filter(id=>ma.done?.includes(id) || mb.done?.includes(id));
+    missions = { date:mb.date, list, prog, done, theme:mb.theme };
+  }
+  return { xp: max(a.xp, b.xp), ach, stats, blitz, runs, dailyHist, missions };
+}
+/* troca o progresso local pelo mesclado e redesenha o que mostra progresso */
+function applyProgress(p){
+  xpTotal = p.xp;
+  Object.keys(ach).forEach(k=>delete ach[k]);
+  Object.assign(ach, p.ach);
+  Object.assign(stats, p.stats);
+  blitzRecords = p.blitz;
+  Object.assign(runs, p.runs);
+  dailyHist = p.dailyHist;
+  if(p.missions.date===todayStr()) Object.assign(missions, p.missions);
+  // grava direto, sem passar por store.set (não precisa reenviar o que veio da nuvem)
+  const raw = { 'dito:xp':xpTotal, 'dito:ach':ach, 'dito:stats':stats, 'dito:blitz':{ records:blitzRecords },
+                'dito:runs':runs, 'dito:dailyHist':dailyHist, 'dito:missions':missions };
+  for(const k in raw) try{ localStorage.setItem(k, JSON.stringify(raw[k])); }catch(e){}
+  if(levelOf(xpTotal).level>=10) unlock('nivel10');
+  updateProfileBtn();
+  renderStats();
+  if(document.getElementById('sheetProfile').classList.contains('open')) renderProfile();
+  // o diário de hoje já foi jogado no outro aparelho e aqui nem começou: mostra o resultado
+  if(state.mode==='daily' && state.status==='play' && state.row===0 && dailyHist[state.dailyDate]) enterDaily(state.dailyDate);
+}
+/* mescla a nuvem no local; devolve o resultado e se a nuvem ficou pra trás */
+function syncMerge(cloud){
+  const local = progressSnapshot();
+  const merged = mergeProgress(local, cloud);
+  if(canon(merged)!==canon(local)) applyProgress(merged);
+  return { merged, behind: !cloud || canon(merged)!==canon(cloud) };
+}
+
+/* ---------- login (OAuth do Google por redirecionamento) ---------- */
+function syncAuthRedirect(silent){
+  const nonce = crypto.randomUUID();
+  try{ sessionStorage.setItem('dito:oauth', JSON.stringify({ nonce, silent })); }catch(e){}
+  const p = new URLSearchParams({ client_id:GOOGLE_CLIENT_ID, redirect_uri:SYNC_REDIRECT, response_type:'token',
+                                  scope:SYNC_SCOPE, state:nonce, include_granted_scopes:'true' });
+  if(sync.user?.email) p.set('login_hint', sync.user.email);
+  if(silent) p.set('prompt', 'none');
+  else if(!sync.user) p.set('prompt', 'select_account');
+  location.assign('https://accounts.google.com/o/oauth2/v2/auth?' + p);
+}
+/* volta do Google: lê e limpa o #access_token=... (ou #error=...) da URL */
+function syncReadRedirect(){
+  if(location.hash.startsWith('#w=')) return null;
+  const p = new URLSearchParams(location.hash.slice(1));
+  if(!p.has('state')) return null;
+  history.replaceState(null, '', location.pathname + location.search);
+  let req = null;
+  try{ req = JSON.parse(sessionStorage.getItem('dito:oauth')); sessionStorage.removeItem('dito:oauth'); }catch(e){}
+  if(!req || p.get('state')!==req.nonce) return null; // não fomos nós que pedimos
+  if(!p.get('access_token')) return { error:p.get('error') || 'erro', silent:req.silent };
+  return { token:p.get('access_token'), exp: Date.now() + (Number(p.get('expires_in'))||3600)*1000 - 60000 };
+}
+function syncSaved(){ try{ return JSON.parse(localStorage.getItem('dito:sync')); }catch(e){ return null; } }
+function saveSyncLocal(){
+  try{ localStorage.setItem('dito:sync', JSON.stringify({ user:sync.user, token:sync.token, exp:sync.exp })); }catch(e){}
+}
+/* login salvo mas vencido: renova sem tela antes de montar o jogo (uma tentativa por aba,
+   e nunca por cima de um link de desafio, que se perderia no redirecionamento) */
+function syncShouldRefresh(back){
+  const saved = syncSaved();
+  if(back || !saved?.user || Date.now() < (saved.exp||0) || !navigator.onLine) return false;
+  if(location.hash.startsWith('#w=')) return false;
+  try{
+    if(sessionStorage.getItem('dito:silentTried')) return false;
+    sessionStorage.setItem('dito:silentTried', '1');
+  }catch(e){ return false; }
+  sync.user = saved.user;
+  return true;
+}
+async function syncStart(back){
+  const saved = syncSaved();
+  if(saved?.user){ sync.user = saved.user; sync.token = saved.token; sync.exp = saved.exp||0; }
+  if(back?.token){
+    sync.token = back.token; sync.exp = back.exp;
+    try{ sessionStorage.removeItem('dito:silentTried'); }catch(e){}
+    try{
+      const u = await (await gfetch('https://openidconnect.googleapis.com/v1/userinfo')).json();
+      sync.user = { name:u.name, email:u.email, picture:u.picture };
+    }catch(e){ sync.user ||= { name:'Conta Google' }; }
+    saveSyncLocal();
+    if(!saved?.user) say('☁️ Conectado! Seu progresso agora vai junto pra todo aparelho.', 3200);
+  } else if(back?.error && !back.silent){
+    say('Login cancelado — o progresso continua salvo neste aparelho.', 2600);
+  }
+  if(!sync.user) return setSyncStatus('off');
+  syncNow();
+}
+function syncTokenOk(){ return !!sync.token && Date.now() < sync.exp; }
+
+/* ---------- Google Drive (pasta escondida do app) ---------- */
+async function gfetch(url, opts={}){
+  const r = await fetch(url, { ...opts, headers:{ Authorization:`Bearer ${sync.token}`, ...(opts.headers||{}) } });
+  if(r.status===401){ sync.exp = 0; saveSyncLocal(); throw new Error('expirou'); }
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r;
+}
+/* puxa da nuvem, mescla no local e grava o resultado se a nuvem estiver atrás.
+   O Drive não tem transação: se dois aparelhos gravarem juntos, um sobrescreve o
+   outro na nuvem, mas nada se perde — o local de quem perdeu volta no próximo envio */
+function syncNow(){
+  clearTimeout(sync.timer); sync.timer = null;
+  if(!sync.user) return;
+  if(!syncTokenOk()) return setSyncStatus('expired');
+  if(sync.busy){ sync.again = true; return; }
+  sync.busy = (async()=>{
+    setSyncStatus('syncing');
+    try{
+      const q = encodeURIComponent(`name='${SYNC_FILE}' and trashed=false`);
+      const { files=[] } = await (await gfetch(`${DRIVE}?spaces=appDataFolder&q=${q}&orderBy=createdTime&fields=files(id)`)).json();
+      // dois aparelhos criando o arquivo ao mesmo tempo dá duplicado: junta tudo no mais antigo
+      let cloud = null;
+      for(const f of files){
+        const p = await (await gfetch(`${DRIVE}/${f.id}?alt=media`)).json().catch(()=>null);
+        if(p && typeof p==='object') cloud = cloud ? mergeProgress(p, cloud) : p;
+      }
+      const { merged, behind } = syncMerge(cloud);
+      const body = JSON.stringify(merged);
+      if(!files.length){
+        const form = new FormData();
+        form.append('metadata', new Blob([JSON.stringify({ name:SYNC_FILE, parents:['appDataFolder'] })], { type:'application/json' }));
+        form.append('file', new Blob([body], { type:'application/json' }));
+        await gfetch(`${DRIVE_UP}?uploadType=multipart&fields=id`, { method:'POST', body:form });
+      } else {
+        if(behind || files.length>1)
+          await gfetch(`${DRIVE_UP}/${files[0].id}?uploadType=media`, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body });
+        for(const f of files.slice(1)) await gfetch(`${DRIVE}/${f.id}`, { method:'DELETE' });
+      }
+      sync.pulled = Date.now();
+      setSyncStatus('ok');
+    }catch(e){ setSyncStatus(syncTokenOk() ? 'error' : 'expired'); }
+    sync.busy = null;
+    if(sync.again){ sync.again = false; syncNow(); }
+  })();
+}
+/* store.set de uma chave de progresso: envia logo depois (junta várias gravações seguidas) */
+function syncDirty(k){
+  if(!sync.user || !SYNC_KEYS.includes(k)) return;
+  clearTimeout(sync.timer);
+  sync.timer = setTimeout(syncNow, 2000);
+}
+function setSyncStatus(st){
+  sync.status = st;
+  renderSyncBox();
+}
+function syncSignOut(){
+  if(sync.timer && syncTokenOk()) syncNow(); // não deixa a última partida pra trás
+  const token = sync.token;
+  // revoga só depois do último envio, pra não cortar a gravação no meio
+  Promise.resolve(sync.busy).finally(()=>{
+    if(token) fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`, { method:'POST' }).catch(()=>{});
+  });
+  Object.assign(sync, { user:null, token:null, exp:0 });
+  clearTimeout(sync.timer); sync.timer = null;
+  try{ localStorage.removeItem('dito:sync'); }catch(e){}
+  setSyncStatus('off');
+  say('Você saiu. O progresso continua salvo neste aparelho.', 2600);
+}
+const escHTML = t => String(t).replace(/[&<>"']/g, c=>`&#${c.charCodeAt(0)};`);
+function renderSyncBox(){
+  const box = document.getElementById('pfSync');
+  box.hidden = false;
+  const u = sync.user;
+  const status = { syncing:'🔄 Sincronizando…', ok:'✅ Progresso sincronizado', error:'⚠️ Sem conexão — sincroniza quando voltar',
+                   expired:'⏳ O login expirou — toque em Reconectar' }[sync.status] || '';
+  box.innerHTML = u ? `
+    <div class="who">
+      ${u.picture ? `<img src="${escHTML(u.picture)}" alt="" referrerpolicy="no-referrer">` : '<span class="ico">👤</span>'}
+      <span><b>${escHTML(u.name || u.email || 'Conta Google')}</b><small>${status}</small></span>
+      ${sync.status==='expired' ? '<button class="btn" data-sync="in">Reconectar</button>' : ''}
+      <button class="btn ghost" data-sync="out">Sair</button>
+    </div>` : `
+    <p>☁️ Entre com o Google pra levar seu XP, conquistas e recordes para qualquer aparelho (ficam numa pasta escondida do seu Google Drive).</p>
+    <button class="btn" data-sync="in">Entrar com Google</button>`;
+}
+document.getElementById('pfSync').addEventListener('click', e=>{
+  const b = e.target.closest('[data-sync]');
+  if(b) b.dataset.sync==='in' ? syncAuthRedirect(false) : syncSignOut();
+});
+// celular troca de app sem fechar a página: manda o que estiver pendente;
+// e ao voltar, puxa o que outro aparelho possa ter mandado
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden){ if(sync.timer) syncNow(); }
+  else if(sync.user && Date.now()-sync.pulled > 30000) syncNow();
+});
+
+/* =========================================================
    INÍCIO
    ========================================================= */
 (async function init(){
+  // volta do login do Google; ou login vencido, que renova antes de montar o jogo
+  const authBack = syncReadRedirect();
+  if(syncShouldRefresh(authBack)) return syncAuthRedirect(true);
   const s = await store.get('dito:settings');
   if(s){
     state.len=s.len??5; state.tries=s.tries??6;
@@ -2279,6 +2551,8 @@ if(!canVibrate) optVibe.closest('.check').hidden = true;
     dailyHist[old.date] = { s: old.status, g: old.rows.map(r=>r.guess) };
     store.set('dito:dailyHist', dailyHist);
   }
+  // conectado com o Google: sincroniza em segundo plano
+  syncStart(authBack);
   // variação do infinito salva (não vale se entrar por link de desafio, abaixo)
   if(s?.mode!=='daily' && VARIANTS[s?.variant] && s.variant!=='normal'){
     state.variant = s.variant;

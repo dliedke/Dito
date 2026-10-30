@@ -242,6 +242,30 @@ jogo, painéis/tema, início). Pontos importantes:
 - **Relâmpago com tema**: o tema dos Ajustes vale no relâmpago; temas com
   menos de `BLITZ_MIN_THEME` palavras de 5 letras ficam desativados no select.
 
+- **Sincronização com o Google** (seção "SINCRONIZAÇÃO NA NUVEM", caixa
+  `#pfSync` dentro do 🎯): sem servidor — o progresso vai pra um arquivo
+  `dito.json` na pasta escondida do Google Drive do próprio jogador
+  (`appDataFolder`, escopo `drive.appdata`). Só o `GOOGLE_CLIENT_ID` fica no
+  código (**nunca** o client secret). Login por redirecionamento OAuth
+  (`response_type=token`; `syncAuthRedirect()` → volta com `#access_token=`,
+  lido e limpo por `syncReadRedirect()` no começo do `init`, conferindo o
+  `state` salvo em `sessionStorage`). O token dura ~1h; vencido, o `init`
+  tenta renovar sem tela (`prompt=none`) uma vez por aba
+  (`syncShouldRefresh()`), nunca por cima de um link `#w=`. A URI de
+  redirecionamento é a própria página (`SYNC_REDIRECT`) e precisa estar
+  cadastrada no cliente OAuth (só `https://dliedke.github.io/Dito/` por
+  enquanto — localhost não loga sem cadastrar). O localStorage continua
+  sendo a fonte: `store.set` chama `syncDirty()` pras chaves de `SYNC_KEYS`,
+  e `syncNow()` lê a nuvem, mescla (`mergeProgress(local, nuvem)`), aplica no
+  jogo (`applyProgress()`) e regrava se a nuvem estava atrás. Regras do merge:
+  maior XP/contador, união de conquistas (data mais antiga), recordes do
+  relâmpago unidos (top `BLITZ_KEEP`), no diário o melhor resultado do dia, e a
+  sequência atual do lado com mais partidas. **Empate fica com a nuvem** e o
+  resultado precisa ser idempotente/comutativo (comparado via `canon()`), senão
+  dois aparelhos ficam se regravando. Ajustes (`dito:settings`) não sincronizam.
+  Ao criar uma chave nova de progresso, incluir em `SYNC_KEYS`,
+  `progressSnapshot()`, `mergeProgress()` e `applyProgress()`.
+
 - **Layout no celular**: `#keyboard` é `position:sticky; bottom:0` (por isso
   `html,body` usam `min-height`, não `height`), então fica sempre visível
   mesmo quando o conteúdo passa da altura da tela. Como ele pode cobrir a

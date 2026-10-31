@@ -237,7 +237,8 @@ function themePool(len, theme){
    VARIAÇÕES DO INFINITO — escolhidas na aba "🎲 Variações".
    tries: tentativas fixas (calculadas pelo tamanho); noAssist: sem dicas
    automáticas, sem dica de grupo e sem modo difícil (não fazem sentido ali);
-   noHard: dicas valem, só o modo difícil fica de fora
+   noHard: dicas valem, só o modo difícil fica de fora (as cores mentem, somem
+   ou a resposta foge — exigir pistas anteriores não faz sentido)
    ========================================================= */
 const VARIANTS = {
   normal: {icon:'♾️', name:'Normal',       desc:'O jogo de sempre, com as letras, tentativas e tema dos Ajustes.'},
@@ -245,23 +246,23 @@ const VARIANTS = {
            desc:'Duas palavras ao mesmo tempo: cada palpite vale para as duas. Tentativas = letras + 2. Dica de grupo e dicas no fim valem para cada palavra.'},
   quad:   {icon:'🀄', name:'Quarteto',     boards:4, tries:len=>len+6, noHard:true,
            desc:'Quatro palavras de uma vez! Cada palpite vale para todas. Tentativas = letras + 6. Dica de grupo e dicas no fim valem para cada palavra.'},
-  cheat:  {icon:'😈', name:'Trapaceiro',   tries:()=>7, noAssist:true,
-           desc:'O jogo não escolhe a palavra: a cada palpite ele foge, ficando com o maior grupo de palavras possíveis. Encurrale-o em 7 tentativas.'},
+  cheat:  {icon:'😈', name:'Trapaceiro',   tries:()=>7, noHard:true,
+           desc:'O jogo não escolhe a palavra: a cada palpite ele foge, ficando com o maior grupo de palavras possíveis. Encurrale-o em 7 tentativas. As dicas também o prendem: depois delas, ele só foge pra palavras que batem.'},
   chain:  {icon:'⛓️', name:'Corrente',
            desc:'A palavra que você acertou vira o 1º palpite da próxima. Quantos elos seguidos você consegue?'},
   sudden: {icon:'💀', name:'Morte súbita', tries:()=>3,
            desc:'Só 3 tentativas. Acertar na 1ª vale 500 pontos, na 2ª 250, na 3ª 100. O primeiro erro acaba a rodada.'},
   pass:   {icon:'👥', name:'Passa-e-joga',
            desc:'Duas pessoas no mesmo aparelho revezam os palpites no mesmo tabuleiro. Ganha quem acertar!'},
-  liar:   {icon:'🤥', name:'Mentiroso',    tries:()=>8, noAssist:true, noGhost:true,
+  liar:   {icon:'🤥', name:'Mentiroso',    tries:()=>8, noHard:true, noGhost:true,
            desc:'Em cada palpite, uma casinha mostra a cor errada (menos no acerto). Desconfie de tudo: 8 tentativas, e no fim as mentiras são reveladas.'},
-  count:  {icon:'🔢', name:'Contagem',     tries:len=>len+5, noAssist:true, noGhost:true, noKeys:true,
+  count:  {icon:'🔢', name:'Contagem',     tries:len=>len+5, noHard:true, noGhost:true, noKeys:true,
            desc:'As casinhas não mostram cor: ao lado de cada palpite aparece só quantas letras estão no lugar certo (🟩) e quantas estão na palavra em outro lugar (🟦). Tentativas = letras + 5.'},
-  memory: {icon:'🧠', name:'Memória',      noAssist:true, noGhost:true, noKeys:true,
+  memory: {icon:'🧠', name:'Memória',      noHard:true, noGhost:true, noKeys:true,
            desc:'As cores só ficam visíveis no último palpite: as linhas anteriores apagam e o teclado não ajuda. Tudo fica por conta da sua memória.'},
   ladder: {icon:'🪜', name:'Escada',       tries:()=>6, len:true,
            desc:'Comece com 3 letras e suba um degrau a cada acerto: 4, 5, 6, 7 até 8 letras. Errou, volta pro começo. Até onde você chega?'},
-  anagram:{icon:'🔀', name:'Anagrama',     tries:len=>Math.max(3, len-1), noAssist:true,
+  anagram:{icon:'🔀', name:'Anagrama',     tries:len=>Math.max(3, len-1), noHard:true,
            desc:'Você já começa sabendo as letras, embaralhadas. Falta descobrir a ordem certa, com menos tentativas (letras − 1).'},
 };
 /* escada: o degrau (acertos seguidos) define o tamanho, de 3 a 8 letras */
@@ -676,8 +677,11 @@ function paintKeyboard(){
       b.style.background = splitKeyBg(parts);
       return;
     }
-    // contagem/memória: teclado sem cor durante a partida
-    if(VARIANTS[variant()].noKeys && state.status==='playing') return;
+    // contagem/memória: teclado sem cor durante a partida (só a letra da dica)
+    if(VARIANTS[variant()].noKeys && state.status==='playing'){
+      if(state.hintKey===k) b.classList.add('hint');
+      return;
+    }
     if(state.letterState[k]) b.classList.add(state.letterState[k]);
     else if(state.hintKey===k) b.classList.add('hint');
   });
@@ -716,12 +720,16 @@ function maybeHint(){
   state.hintLevel = nivel;
   if(state.multi) return hintMulti(nivel);
 
-  if(nivel === 1){
+  // anagrama: as letras já são conhecidas, então a dica vai direto pra posição
+  if(nivel === 1 && variant()!=='anagram'){
     // 1ª dica: aponta uma letra da palavra que o jogador ainda não descobriu
-    const achadas = new Set(Object.keys(state.letterState).filter(k=>state.letterState[k]!=='absent'));
+    // (contagem/memória: o teclado não mostra o que já foi achado, então vale qualquer uma)
+    const achadas = new Set(VARIANTS[variant()].noKeys ? [] :
+      Object.keys(state.letterState).filter(k=>state.letterState[k]!=='absent'));
     const faltando = [...new Set(state.answer.split(''))].filter(c=>!achadas.has(c));
     if(faltando.length){
       const c = faltando[Math.floor(Math.random()*faltando.length)];
+      cheatKeep(k=>k.includes(c));
       state.hintKey = c;
       paintKeyboard();
       showHint(`Faltam <b>2 tentativas</b>. A palavra tem a letra <b>${c.toUpperCase()}</b>.`);
@@ -734,13 +742,17 @@ function maybeHint(){
 
 function revelarPosicao(nivel){
   const resolvidas = new Set(Object.keys(state.ghosts).map(Number));
-  state.rows.forEach(r=>r.res.forEach((v,i)=>{ if(v==='correct') resolvidas.add(i); }));
+  // mentiroso/contagem/memória: o jogador não pode confiar nas verdes (ou nem
+  // as vê), então qualquer posição ainda sem dica pode ser revelada
+  if(!VARIANTS[variant()].noGhost) state.rows.forEach(r=>r.res.forEach((v,i)=>{ if(v==='correct') resolvidas.add(i); }));
   const livres = [...Array(state.len).keys()].filter(i=>!resolvidas.has(i));
   if(!livres.length){
     showHint('Você já tem todas as letras no lugar certo. É só confirmar.');
     return;
   }
   const idx = livres[Math.floor(Math.random()*livres.length)];
+  const c = state.answer[idx];
+  cheatKeep(k=>k[idx]===c);
   const letra = state.answerRaw[idx].toUpperCase();
   state.ghosts[idx] = letra;
   renderCurrent();
@@ -770,6 +782,20 @@ function hintMulti(nivel){
     : 'Você já tem todas as letras no lugar certo. É só confirmar.');
 }
 
+/* trapaceiro: uma dica revelada prende o jogo — ele só pode continuar fugindo
+   pras palavras que batem com ela (a resposta atual sempre bate, mas troca
+   por garantia se não bater) */
+function cheatKeep(ok){
+  if(!state.cheat) return;
+  const cands = state.cheat.cands.filter(ok);
+  if(!cands.length) return;
+  state.cheat.cands = cands;
+  if(!cands.includes(state.answer)){
+    state.answer = pickOne(cands);
+    state.answerRaw = DICT[state.len].words.get(state.answer);
+  }
+}
+
 /* botão manual "dica de grupo": mostra outra palavra do mesmo grupo temático
    da resposta, ou, se a palavra não tiver grupo conhecido, revela uma letra
    extra sem dizer a posição. Uso único por partida. */
@@ -789,8 +815,23 @@ function useGroupHint(){
     return;
   }
 
+  // trapaceiro: ele escolhe o grupo com mais palavras ainda possíveis
+  // e, dali em diante, só pode fugir dentro dele
+  if(state.cheat){
+    const cont = {};
+    state.cheat.cands.forEach(k=>{ const g = wordGroup[k]; if(g) cont[g] = (cont[g]||0)+1; });
+    const maior = Object.keys(cont).sort((a,b)=>cont[b]-cont[a])[0];
+    if(maior) cheatKeep(k=>wordGroup[k]===maior);
+  }
+
   const cat = wordGroup[state.answer];
-  const opcoes = cat ? GROUPS[cat].filter(w=>w!==state.answer) : [];
+  let opcoes = cat ? GROUPS[cat].filter(w=>w!==state.answer) : [];
+  // trapaceiro: de exemplo, de preferência uma palavra que ele não pode virar
+  if(state.cheat){
+    const cands = new Set(state.cheat.cands);
+    const fora = opcoes.filter(w=>!cands.has(w));
+    if(fora.length) opcoes = fora;
+  }
   if(cat && opcoes.length){
     const outra = opcoes[Math.floor(Math.random()*opcoes.length)];
     const nome = GROUP_LABEL[cat] || cat;

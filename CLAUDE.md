@@ -218,7 +218,14 @@ jogo, painéis/tema, início). Pontos importantes:
     posição por tabuleiro aberto, em `state.multi.ghosts[b]`.
   - **Trapaceiro**: `cheatDodge(g)` troca `state.answer` **antes** de avaliar,
     ficando com o maior grupo de `state.cheat.cands` por assinatura de cores;
-    o resto do fluxo é o normal.
+    o resto do fluxo é o normal. Toda dica revelada (letra, posição, grupo)
+    passa por `cheatKeep(filtro)`, que corta `state.cheat.cands` pras palavras
+    que batem com ela — senão ele fugiria da dica e ela viraria mentira.
+  - **Dicas nas variações difíceis**: Trapaceiro, Mentiroso, Contagem, Memória
+    e Anagrama são `noHard` (dicas e dica de grupo valem, modo difícil não).
+    Nas `noGhost` a dica de posição pode cair numa casa já verde (o jogador
+    não pode confiar nas cores); no Anagrama a 1ª dica vai direto pra posição
+    (as letras já são conhecidas); nas `noKeys` o teclado mostra só a letra da dica.
   - **Corrente/Morte súbita/Passa-e-joga**: estado da sequência em `state.run`
     (`initRun()`, `updateRun()` no `finish()`, `#varBar` via `renderVarBar()`);
     recordes em `runs` (`store['dito:runs']`), gravados já no acerto.

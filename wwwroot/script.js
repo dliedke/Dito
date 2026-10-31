@@ -253,7 +253,19 @@ const VARIANTS = {
            desc:'Só 3 tentativas. Acertar na 1ª vale 500 pontos, na 2ª 250, na 3ª 100. O primeiro erro acaba a rodada.'},
   pass:   {icon:'👥', name:'Passa-e-joga',
            desc:'Duas pessoas no mesmo aparelho revezam os palpites no mesmo tabuleiro. Ganha quem acertar!'},
+  liar:   {icon:'🤥', name:'Mentiroso',    tries:()=>8, noAssist:true, noGhost:true,
+           desc:'Em cada palpite, uma casinha mostra a cor errada (menos no acerto). Desconfie de tudo: 8 tentativas, e no fim as mentiras são reveladas.'},
+  count:  {icon:'🔢', name:'Contagem',     tries:len=>len+5, noAssist:true, noGhost:true, noKeys:true,
+           desc:'As casinhas não mostram cor: ao lado de cada palpite aparece só quantas letras estão no lugar certo (🟩) e quantas estão na palavra em outro lugar (🟦). Tentativas = letras + 5.'},
+  memory: {icon:'🧠', name:'Memória',      noAssist:true, noGhost:true, noKeys:true,
+           desc:'As cores só ficam visíveis no último palpite: as linhas anteriores apagam e o teclado não ajuda. Tudo fica por conta da sua memória.'},
+  ladder: {icon:'🪜', name:'Escada',       tries:()=>6, len:true,
+           desc:'Comece com 3 letras e suba um degrau a cada acerto: 4, 5, 6, 7 até 8 letras. Errou, volta pro começo. Até onde você chega?'},
+  anagram:{icon:'🔀', name:'Anagrama',     tries:len=>Math.max(3, len-1), noAssist:true,
+           desc:'Você já começa sabendo as letras, embaralhadas. Falta descobrir a ordem certa, com menos tentativas (letras − 1).'},
 };
+/* escada: o degrau (acertos seguidos) define o tamanho, de 3 a 8 letras */
+const ladderLen = count => 3 + count % 6;
 const PLAYERS = [{icon:'🟠', name:'Jogador 1'}, {icon:'🟣', name:'Jogador 2'}];
 const SUDDEN_PTS = [500, 250, 100];
 function variant(){ return state.mode==='free' ? state.variant : 'normal'; }
@@ -261,8 +273,8 @@ function noAssist(){ return !!VARIANTS[variant()].noAssist; }
 function hintsOn(){ return state.hints && !noAssist(); }
 function hardAllowed(){ const v = VARIANTS[variant()]; return !v.noAssist && !v.noHard; }
 function hardOn(){ return state.hard && hardAllowed(); }
-/* recordes da corrente e da morte súbita (localStorage 'dito:runs') */
-const runs = { chain:0, sudden:0, suddenWords:0 };
+/* recordes da corrente, da morte súbita e da escada (localStorage 'dito:runs') */
+const runs = { chain:0, sudden:0, suddenWords:0, ladder:0 };
 
 /* armazenamento local (localStorage), com fallback silencioso caso indisponível */
 const store = {
@@ -334,6 +346,8 @@ function buildSegments(){
   const lockPlay = state.mode!=='free' || state.duel;
   // variações com tentativas fixas (dueto, quarteto, trapaceiro, morte súbita)
   const lockTries = lockPlay || !!VARIANTS[variant()].tries;
+  // escada: o tamanho vem do degrau
+  const lockLen = lockPlay || !!VARIANTS[variant()].len;
   // no relâmpago o tema pode mudar (o tamanho continua 5)
   const lockTheme = state.mode==='daily' || state.duel;
   const segLen = document.getElementById('segLen');
@@ -342,7 +356,7 @@ function buildSegments(){
     const b=document.createElement('button');
     b.textContent=n; b.setAttribute('aria-pressed', n===state.len);
     // tamanhos sem palavra suficiente no tema escolhido ficam desativados
-    b.disabled = lockPlay || themePool(n, state.theme).length===0;
+    b.disabled = lockLen || themePool(n, state.theme).length===0;
     b.onclick=()=>{ state.len=n; if(state.tries<3) state.tries=n+1; buildSegments(); newGame(); saveSettings(); };
     segLen.appendChild(b);
   }
@@ -355,7 +369,7 @@ function buildSegments(){
     b.onclick=()=>{ state.tries=t; buildSegments(); newGame(); saveSettings(); };
     segTries.appendChild(b);
   }
-  document.getElementById('segLen').closest('.field').classList.toggle('locked', lockPlay);
+  document.getElementById('segLen').closest('.field').classList.toggle('locked', lockLen);
   document.getElementById('segTries').closest('.field').classList.toggle('locked', lockTries);
   document.getElementById('fieldTheme').classList.toggle('locked', lockTheme);
   document.getElementById('selTheme').disabled = lockTheme;
@@ -400,6 +414,7 @@ function startFresh(){
   if(r && state.status==='playing' && r.count>0){
     if(r.kind==='chain'){ say(`⛓️ A corrente quebrou com ${r.count} ${r.count===1?'elo':'elos'}`, 2200); r.count = 0; r.prev = null; }
     if(r.kind==='sudden'){ say(`💀 Rodada encerrada: ${r.pts} pts`, 2200); r.count = 0; r.pts = 0; }
+    if(r.kind==='ladder'){ say(`🪜 Desceu da escada no degrau ${r.count}`, 2200); r.count = 0; }
   }
   newGame();
 }
@@ -433,7 +448,7 @@ function saveSettings(){
   // que são os que o jogador escolheu
   const own = state.mode==='free' || state.savedLen===undefined;
   store.set('dito:settings',{
-    len: own ? state.len : state.savedLen,
+    len: own ? (state.varSavedLen ?? state.len) : state.savedLen,
     // variações com tentativas fixas guardam as do jogador em varSavedTries
     tries: own ? (state.varSavedTries ?? state.tries) : state.savedTries,
     wordTheme: own ? state.theme : state.savedTheme,
@@ -450,6 +465,8 @@ function newGame(forcedKey){
   state.gameId++; // invalida setTimeouts pendentes de uma partida anterior
   if(state.mode!=='daily') state.dailyDate = null;
   const v = variant();
+  // escada: o tamanho é o do degrau atual
+  if(v==='ladder' && state.run && state.len!==ladderLen(state.run.count)){ state.len = ladderLen(state.run.count); buildSegments(); }
   // variações com tentativas fixas (dependem do tamanho, que pode ter mudado)
   const vt = VARIANTS[v].tries;
   if(vt && state.tries!==vt(state.len)){ state.tries = vt(state.len); buildSegments(); }
@@ -501,6 +518,18 @@ function newGame(forcedKey){
   state.locked = new Set();
   state.groupHintUsed = false;
   state.trail = null;
+  // anagrama: as letras da resposta embaralhadas (de preferência fora da ordem certa);
+  // as letras que não estão na palavra já começam apagadas no teclado
+  state.anagram = null;
+  if(v==='anagram'){
+    const letras = [...state.answerRaw.toUpperCase()];
+    for(let t=0; t<10; t++){
+      for(let i=letras.length-1; i>0; i--){ const j = Math.floor(Math.random()*(i+1)); [letras[i], letras[j]] = [letras[j], letras[i]]; }
+      if(norm(letras.join(''))!==state.answer) break;
+    }
+    state.anagram = letras;
+    KEYS.flat().forEach(k=>{ if(/^[a-z]$/.test(k) && !state.answer.includes(k)) state.letterState[k] = 'absent'; });
+  }
   stopCountdown();
   endEl.innerHTML = '';
   hintEl.innerHTML = '';
@@ -542,6 +571,10 @@ function buildRows(parent){
 function drawBoard(){
   board.innerHTML='';
   board.classList.toggle('multi', !!state.multi);
+  // contagem/memória escondem cores pelo CSS até o fim da partida (ver finish)
+  const v = state.mode==='free' ? state.variant : 'normal';
+  board.classList.toggle('v-count', v==='count');
+  board.classList.toggle('v-memory', v==='memory');
   board.style.gridTemplateColumns = '';
   if(state.multi){
     // dueto/quarteto: um mini-tabuleiro por palavra, lado a lado
@@ -553,7 +586,9 @@ function drawBoard(){
     });
     sizeMultiBoard();
   } else {
-    board.style.setProperty('--tile', `clamp(30px, ${Math.min(72/state.len, 14)}vw, ${state.len>6?52:62}px)`);
+    // na contagem sobra espaço do lado pra mostrar os números de cada linha
+    const w = board.classList.contains('v-count') ? 60 : 72;
+    board.style.setProperty('--tile', `clamp(${w<72?26:30}px, ${Math.min(w/state.len, 14)}vw, ${state.len>6?52:62}px)`);
     buildRows(board);
   }
 }
@@ -641,6 +676,8 @@ function paintKeyboard(){
       b.style.background = splitKeyBg(parts);
       return;
     }
+    // contagem/memória: teclado sem cor durante a partida
+    if(VARIANTS[variant()].noKeys && state.status==='playing') return;
     if(state.letterState[k]) b.classList.add(state.letterState[k]);
     else if(state.hintKey===k) b.classList.add('hint');
   });
@@ -866,7 +903,8 @@ function renderCurrent(){
     // fora do modo difícil as verdes já descobertas não são travadas: aparecem
     // como lembrete apagadinho (igual à dica de posição) até o jogador digitar
     const known = {};
-    if(!hardOn()) res.forEach(r=>r.forEach((v,i)=>{ if(v==='correct') known[i] = raw[i].toUpperCase(); }));
+    // (não nas variações em que as cores mentem ou ficam escondidas)
+    if(!hardOn() && !VARIANTS[variant()].noGhost) res.forEach(r=>r.forEach((v,i)=>{ if(v==='correct') known[i] = raw[i].toUpperCase(); }));
     [...row.children].forEach((tile,i)=>{
       const ch = state.cur[i];
       const ghost = ghosts[i] || known[i];
@@ -928,9 +966,25 @@ function submit(){
   // trapaceiro: antes de avaliar, o jogo troca a resposta pra fugir do palpite
   if(state.cheat) cheatDodge(g);
 
-  const res = evaluate(g, state.answer);
-  state.rows.push({guess:g, res});
+  const truth = evaluate(g, state.answer);
+  let res = truth, lie = null;
+  // mentiroso: uma casinha (fora do acerto) mostra outra cor
+  if(variant()==='liar' && g!==state.answer){
+    lie = Math.floor(Math.random()*state.len);
+    res = truth.slice();
+    res[lie] = pickOne(['correct','present','absent'].filter(c=>c!==truth[lie]));
+  }
+  state.rows.push(lie===null ? {guess:g, res} : {guess:g, res, truth, lie});
   const row = board.children[state.row];
+  // contagem: só os totais da linha; memória: só a última linha fica colorida
+  if(board.classList.contains('v-count')){
+    const certas = truth.filter(x=>x==='correct').length, outras = truth.filter(x=>x==='present').length;
+    row.dataset.count = `${certas}🟩\n${outras}🟦`;
+  }
+  if(board.classList.contains('v-memory')){
+    board.querySelectorAll('.row.fresh').forEach(x=>x.classList.remove('fresh'));
+    row.classList.add('fresh');
+  }
   row.classList.remove('active-row');
   [...row.children].forEach(t=>t.classList.remove('active'));
   // passa-e-joga: marca de quem foi o palpite e passa a vez
@@ -1009,7 +1063,9 @@ function revealRow(row, g, res, raw, gameId, quiet){
       setTimeout(()=>{
         if(state.gameId!==gameId) return;
         tile.classList.add(res[i]);
-        tile.textContent = res[i]==='correct' ? raw[i] : g[i];
+        // só troca pela letra com acento se for certa de verdade (o mentiroso
+        // pode pintar de verde uma letra errada, e aí não pode vazar a resposta)
+        tile.textContent = res[i]==='correct' && norm(raw[i])===g[i] ? raw[i] : g[i];
         if(!quiet) sfx[res[i]]();
       },250);
     }, i*180);
@@ -1151,7 +1207,9 @@ function finish(won){
     });
   } else { stats.streak=0; }
   store.set('dito:stats', stats);
-  state.trail = state.multi ? null : possibilitiesTrail(state.rows, answerPool());
+  // a análise usa as cores verdadeiras (no mentiroso, sem a mentira)
+  state.trail = state.multi ? null : possibilitiesTrail(state.rows.map(r=>({guess:r.guess, res:r.truth || r.res})), answerPool());
+  revealVariantSecrets();
 
   if(state.mode==='daily') saveDaily();
   const runInfo = updateRun(won);
@@ -1178,6 +1236,9 @@ function finish(won){
   } else if(v==='cheat'){
     top = won ? 'Você encurralou o trapaceiro! 😈' : 'O trapaceiro escapou com';
     bottom = won ? `Em ${state.row} de ${state.tries} tentativas` : `Ainda sobravam ${state.cheat.cands.length} palavras possíveis 🤡`;
+  } else if(v==='liar'){
+    top = won ? 'Ninguém te engana! 🕵️' : 'A mentira venceu. A palavra era';
+    bottom = (won ? `Acertou em ${state.row} de ${state.tries}` : loseMessage()) + '<br>🤥 As casinhas marcadas eram as mentiras';
   } else if(p){
     top = won ? `${p.icon} ${p.name} acertou!` : 'Ninguém acertou! A palavra era';
     bottom = `Placar: ${PLAYERS[0].icon} ${state.run.score[0]} × ${state.run.score[1]} ${PLAYERS[1].icon}`;
@@ -1196,14 +1257,26 @@ function finish(won){
   if(won) confetti();
 }
 
+/* fim da partida: mostra o que a variação escondia (cores da contagem e
+   da memória, teclado, e as casinhas em que o mentiroso mentiu) */
+function revealVariantSecrets(){
+  board.classList.remove('v-count', 'v-memory');
+  state.rows.forEach((r,ri)=>{
+    if(r.lie===undefined) return;
+    const tile = board.children[ri]?.children[r.lie];
+    if(tile){ tile.classList.add('lied'); tile.title = `Mentira: a cor certa era ${{correct:'verde',present:'azul',absent:'cinza'}[r.truth[r.lie]]}`; }
+  });
+}
+
 /* =========================================================
-   SEQUÊNCIAS DAS VARIAÇÕES — corrente, morte súbita e passa-e-joga
+   SEQUÊNCIAS DAS VARIAÇÕES — corrente, morte súbita, escada e passa-e-joga
    ========================================================= */
 function initRun(){
   const v = state.variant;
   state.run = v==='chain'  ? {kind:'chain', count:0, prev:null}
             : v==='sudden' ? {kind:'sudden', count:0, pts:0}
             : v==='pass'   ? {kind:'pass', turn:0, last:0, games:0, score:[0,0]}
+            : v==='ladder' ? {kind:'ladder', count:0}
             : null;
 }
 /* atualiza a sequência no fim da partida; devolve o texto extra do fim de jogo */
@@ -1237,6 +1310,20 @@ function updateRun(won){
       r.count = 0; r.pts = 0; r.record = false;
       again = 'Nova rodada';
     }
+  } else if(r.kind==='ladder'){
+    if(won){
+      r.count++; count = r.count;
+      if(r.count>runs.ladder){ runs.ladder = r.count; saveRuns(); }
+      const topo = r.count%6===0;
+      text = topo ? `🪜 Chegou ao topo! ${r.count} degraus — a escada recomeça em 3 letras`
+                  : `🪜 Degrau ${r.count}! Próximo: <b>${ladderLen(r.count)} letras</b>`;
+      if(topo) setTimeout(confetti, 300);
+      again = 'Subir 🪜';
+    } else {
+      text = r.count ? `🪜 Caiu do degrau ${r.count} (recorde: ${runs.ladder})` : '';
+      r.count = 0;
+      again = 'Recomeçar a escada';
+    }
   } else if(r.kind==='pass'){
     if(won) r.score[r.last]++;
     again = 'Próxima partida';
@@ -1247,11 +1334,19 @@ function updateRun(won){
 function saveRuns(){ store.set('dito:runs', runs); }
 const varBar = document.getElementById('varBar');
 function renderVarBar(){
+  // anagrama: as letras embaralhadas ficam na barra durante a partida
+  if(variant()==='anagram' && state.anagram){
+    varBar.hidden = false;
+    varBar.innerHTML = `<span>🔀 Letras:</span><span class="anagram">${state.anagram.map(c=>`<i>${c}</i>`).join('')}</span>`;
+    return;
+  }
   const r = state.mode==='free' ? state.run : null;
   if(!r){ varBar.hidden = true; return; }
   varBar.hidden = false;
   if(r.kind==='chain'){
     varBar.innerHTML = `<span>⛓️ Corrente: <b>${r.count}</b></span><span class="dim">🏆 Recorde ${runs.chain}</span>`;
+  } else if(r.kind==='ladder'){
+    varBar.innerHTML = `<span>🪜 Degrau <b>${r.count}</b> · ${ladderLen(r.count)} letras</span><span class="dim">🏆 Recorde ${runs.ladder}</span>`;
   } else if(r.kind==='sudden'){
     varBar.innerHTML = `<span>💀 <b>${r.count}</b> ${r.count===1?'viva':'seguidas'}</span><span>🏅 <b>${r.pts}</b> pts</span><span class="dim">🏆 Recorde ${runs.sudden}</span>`;
   } else {
@@ -1316,7 +1411,11 @@ function shareText(){
     return `Dito ⚡ Relâmpago — ${b.points} pts (${b.score} ${b.score===1?'palavra':'palavras'}) contra o relógio`;
   }
   const emoji={correct:'🟩',present:'🟦',absent:'⬜'};
-  const line = res => res ? res.map(x=>emoji[x]).join('') : '⬛'.repeat(state.len);
+  // contagem: a graça é não saber a posição, então o resultado mostra só os totais
+  const count = variant()==='count';
+  const line = res => !res ? '⬛'.repeat(state.len)
+    : count ? `${res.filter(x=>x==='correct').length}🟩 ${res.filter(x=>x==='present').length}🟦`
+    : res.map(x=>emoji[x]).join('');
   const grids = resultGrids();
   let grid;
   if(grids.length===1){
@@ -1634,6 +1733,11 @@ const ACHIEVEMENTS = [
   {id:'elo',        icon:'⛓️', name:'Corrente forte',  desc:'Faça uma corrente de 5 palavras'},
   {id:'sobrevivente',icon:'💀', name:'Sobrevivente',   desc:'Acerte 5 seguidas na Morte súbita'},
   {id:'parceria',   icon:'👥', name:'Parceria',        desc:'Termine uma partida de Passa-e-joga'},
+  {id:'detetive',   icon:'🤥', name:'Detector de mentiras', desc:'Vença o Mentiroso'},
+  {id:'contador',   icon:'🔢', name:'Contador',        desc:'Vença uma partida de Contagem'},
+  {id:'elefante',   icon:'🧠', name:'Memória de elefante', desc:'Vença uma partida de Memória'},
+  {id:'alpinista',  icon:'🪜', name:'Alpinista',       desc:'Chegue ao topo da Escada (8 letras)'},
+  {id:'embaralha',  icon:'🔀', name:'Desembaralhador', desc:'Vença o Anagrama em até 2 tentativas'},
   {id:'assiduo',    icon:'🗓️', name:'Assíduo',         desc:'Acerte o diário 7 dias seguidos', goal:7, prog:()=>dailyStreak().best},
   {id:'arqueologo', icon:'📚', name:'Arqueólogo',      desc:'Jogue um dia do arquivo do diário'},
   {id:'missao',     icon:'🎯', name:'Missão dada',     desc:'Cumpra as 3 missões de um dia'},
@@ -1672,6 +1776,11 @@ function checkAchievements(won){
     if(v==='cheat') unlock('malandro');
     if(v==='chain' && state.run?.count>=5) unlock('elo');
     if(v==='sudden' && state.run?.count>=5) unlock('sobrevivente');
+    if(v==='liar') unlock('detetive');
+    if(v==='count') unlock('contador');
+    if(v==='memory') unlock('elefante');
+    if(v==='ladder' && state.run?.count>=6) unlock('alpinista');
+    if(v==='anagram' && state.row<=2) unlock('embaralha');
   }
   if(v==='pass') unlock('parceria');
   if(state.mode==='daily'){
@@ -1695,7 +1804,8 @@ function levelOf(xp){
   const title = TITLES.filter(([l])=>level>=l).pop()[1];
   return { level, title, cur: xp - xpForLevel(level), need: xpForLevel(level+1) - xpForLevel(level) };
 }
-const VARIANT_XP = { duo:30, quad:70, cheat:60, sudden:20, chain:0, pass:0, normal:0 };
+const VARIANT_XP = { duo:30, quad:70, cheat:60, sudden:20, chain:0, pass:0, normal:0,
+                     liar:50, count:60, memory:40, ladder:10, anagram:0 };
 function xpForGame(won){
   if(!won) return 10;
   const v = variant();
@@ -1703,6 +1813,7 @@ function xpForGame(won){
   if(hardOn()) xp += 20;
   if(state.mode==='daily') xp += 20;
   if(v==='chain') xp += 5*(state.run?.count || 0);
+  if(v==='ladder') xp += 5*(state.run?.count || 0);
   return xp;
 }
 /* soma XP; devolve {gained, level, title, up} pra mostrar no fim de jogo */
@@ -1964,7 +2075,8 @@ function renderStats(){
     `<div class="streakline">🔥 Sequência: <b>${st.cur}</b> ${st.cur===1?'dia':'dias'} · 🏆 Recorde: <b>${st.best}</b></div>${heatmapHTML()}`;
   document.getElementById('stRuns').innerHTML =
     `<span>⛓️ Corrente: <b>${runs.chain}</b> ${runs.chain===1?'elo':'elos'}</span>`
-    + `<span>💀 Morte súbita: <b>${runs.sudden}</b> pts${runs.suddenWords ? ` (${runs.suddenWords} palavras)` : ''}</span>`;
+    + `<span>💀 Morte súbita: <b>${runs.sudden}</b> pts${runs.suddenWords ? ` (${runs.suddenWords} palavras)` : ''}</span>`
+    + `<span>🪜 Escada: <b>${runs.ladder||0}</b> ${runs.ladder===1?'degrau':'degraus'}</span>`;
   renderDist();
   renderAch();
 }
@@ -1993,14 +2105,20 @@ function updateModeTabs(){
   tv.textContent = v==='normal' ? '🎲 Variações' : `${VARIANTS[v].icon} ${VARIANTS[v].name}`;
 }
 /* troca a variação do infinito (aba "🎲 Variações") */
+/* devolve tentativas/tamanho guardados ao entrar numa variação que os fixa */
+function restoreVarSaved(){
+  if(state.varSavedTries!==undefined){ state.tries = state.varSavedTries; delete state.varSavedTries; }
+  if(state.varSavedLen!==undefined){ state.len = state.varSavedLen; delete state.varSavedLen; }
+}
 function setVariant(v){
   if(!VARIANTS[v]) return;
   if(state.mode!=='free') setMode('free');
   if(state.duel) endDuel();
-  // sai da variação anterior: devolve as tentativas que o jogador tinha escolhido
-  if(state.varSavedTries!==undefined){ state.tries = state.varSavedTries; delete state.varSavedTries; }
+  // sai da variação anterior: devolve as tentativas/tamanho que o jogador tinha escolhido
+  restoreVarSaved();
   state.variant = v;
   if(VARIANTS[v].tries) state.varSavedTries = state.tries;
+  if(VARIANTS[v].len) state.varSavedLen = state.len;
   initRun();
   updateModeTabs();
   buildSegments();
@@ -2020,7 +2138,7 @@ function setMode(mode){
   if(state.mode==='blitz'){ stopBlitzTimer(); state.blitz = null; }
   // variações só existem no infinito: sair dele volta pro normal
   if(state.mode==='free' && state.variant!=='normal'){
-    if(state.varSavedTries!==undefined){ state.tries = state.varSavedTries; delete state.varSavedTries; }
+    restoreVarSaved();
     state.variant = 'normal'; state.run = null;
   }
   // guarda as escolhas do infinito pra restaurar ao voltar pra ele
@@ -2036,6 +2154,7 @@ function setMode(mode){
   buildThemeSelect();
   buildSegments();
   renderBlitzBar();
+  renderVarBar(); // some a barra da variação (o diário já jogado nem passa por newGame)
   if(mode==='daily') enterDaily();
   else if(mode==='blitz') startBlitz();
   else newGame();
@@ -2346,7 +2465,8 @@ function mergeProgress(a, b){
   const blitz = [...rodadas.values()].sort((x,y)=>y.pts-x.pts || x.id-y.id).slice(0, BLITZ_KEEP);
   const ra = a.runs||{}, rb = b.runs||{};
   const sud = (ra.sudden||0) > (rb.sudden||0) ? ra : rb;
-  const runs = { chain: max(ra.chain, rb.chain), sudden: sud.sudden||0, suddenWords: sud.suddenWords||0 };
+  const runs = { chain: max(ra.chain, rb.chain), sudden: sud.sudden||0, suddenWords: sud.suddenWords||0,
+                 ladder: max(ra.ladder, rb.ladder) };
   // diário: o mesmo dia jogado nos dois aparelhos fica com o melhor resultado
   // (vitória > derrota; no dia certo > pelo arquivo; menos tentativas)
   const rank = e => (e.s==='win' ? 2 : 0) + (e.a ? 0 : 1);
@@ -2603,6 +2723,7 @@ document.addEventListener('visibilitychange', ()=>{
   if(s?.mode!=='daily' && VARIANTS[s?.variant] && s.variant!=='normal'){
     state.variant = s.variant;
     if(VARIANTS[s.variant].tries) state.varSavedTries = state.tries;
+    if(VARIANTS[s.variant].len) state.varSavedLen = state.len;
     initRun();
   }
   buildThemeSelect();
@@ -2615,7 +2736,7 @@ document.addEventListener('visibilitychange', ()=>{
   if(incoming){
     history.replaceState(null, '', location.pathname + location.search); // não repete ao recarregar
     state.mode = 'free';
-    if(state.varSavedTries!==undefined){ state.tries = state.varSavedTries; delete state.varSavedTries; }
+    restoreVarSaved();
     state.variant = 'normal'; state.run = null;
     state.len = incoming.len; state.tries = incoming.tries; state.theme = null;
     // trava dicas/modo difícil no valor de quem criou o desafio,

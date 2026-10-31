@@ -196,7 +196,8 @@ jogo, painéis/tema, início). Pontos importantes:
 
 - **Variações** (`state.variant`, aba "🎲 Variações" → `#sheetVariant`): vivem
   **dentro** do infinito (`state.mode` continua `'free'`), descritas na tabela
-  `VARIANTS` (`normal`, `duo`, `quad`, `cheat`, `chain`, `sudden`, `pass`).
+  `VARIANTS` (`normal`, `duo`, `quad`, `cheat`, `chain`, `sudden`, `pass`,
+  `liar`, `count`, `memory`, `ladder`, `anagram`).
   `variant()` devolve `'normal'` fora do infinito. Variações com `tries` fixo
   travam o campo de tentativas e guardam a escolha do jogador em
   `state.varSavedTries`; as com `noAssist` ignoram dicas/modo difícil via
@@ -222,6 +223,22 @@ jogo, painéis/tema, início). Pontos importantes:
     (`initRun()`, `updateRun()` no `finish()`, `#varBar` via `renderVarBar()`);
     recordes em `runs` (`store['dito:runs']`), gravados já no acerto.
     Abandonar corrente/morte súbita com "Novo jogo" quebra a sequência.
+  - **Mentiroso** (`liar`): em `submit()` uma casinha por linha (fora do acerto)
+    ganha cor falsa; a linha guarda `truth`/`lie`, e a análise do fim usa
+    `truth`. `revealRow()` só mostra a letra da resposta se ela for certa de
+    verdade (senão um verde falso vazaria a resposta). No fim,
+    `revealVariantSecrets()` marca as mentiras (`.tile.lied`).
+  - **Contagem/Memória** (`count`/`memory`): as cores continuam nas casinhas,
+    escondidas por CSS (`#board.v-count`/`.v-memory`; na memória só a
+    `.row.fresh` aparece) e reveladas no fim tirando a classe. `noKeys` deixa o
+    teclado sem cor e `noGhost` desliga o lembrete das verdes. A contagem
+    mostra os totais em `row.dataset.count`.
+  - **Escada** (`ladder`): `len:true` trava o tamanho (`state.varSavedLen`,
+    devolvido por `restoreVarSaved()` como as tentativas); o degrau
+    (`state.run.count`) define o tamanho via `ladderLen()`. Recorde em
+    `runs.ladder`.
+  - **Anagrama** (`anagram`): `state.anagram` = letras embaralhadas, mostradas
+    no `#varBar`; letras fora da palavra já começam cinza no teclado.
 - **Diário — histórico e arquivo**: `dailyHist` (`store['dito:dailyHist']`,
   `{data:{s,g:[palpites],a?}}`, `a` = jogado pelo arquivo) substituiu o antigo
   `dito:daily` (migrado no init). As cores são recalculadas de

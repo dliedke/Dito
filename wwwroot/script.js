@@ -1809,9 +1809,49 @@ function renderProfile(){
   document.getElementById('pfMissions').innerHTML = missions.list.map(id=>{
     const m = MISSIONS.find(x=>x.id===id), ok = missions.done.includes(id);
     const prog = m.goal>1 && !ok ? ` <small>(${missions.prog[id]||0}/${m.goal})</small>` : '';
-    return `<li class="${ok?'ok':''}"><span class="ico">${ok?'✅':m.icon}</span><span>${missionText(id)}${prog}</span><b>+${MISSION_XP}</b></li>`;
+    return `<li><button class="mis${ok?' ok':''}" data-mission="${id}" title="Ir pra essa missão"><span class="ico">${ok?'✅':m.icon}</span><span>${missionText(id)}${prog}</span><b>+${MISSION_XP}</b></button></li>`;
   }).join('');
   renderSyncBox();
+}
+/* tocar numa missão leva direto pro modo/variação/ajuste que ela pede */
+function goMission(id){
+  closeSheets();
+  if(id==='daily'){
+    if(state.mode!=='daily') setMode('daily');
+    else if(state.dailyDate!==todayStr()) enterDaily(); // estava vendo o arquivo
+    return;
+  }
+  if(id==='blitz4'){ if(state.mode!=='blitz') setMode('blitz'); return; }
+  const v = {duo:'duo', quad:'quad', cheat:'cheat', chain3:'chain', sudden3:'sudden'}[id] || 'normal';
+  if(state.mode!=='free' || state.variant!==v){
+    if(v==='normal' && state.mode!=='free') setMode('free');
+    else setVariant(v);
+  }
+  // ajustes que a missão pede, em cima das escolhas atuais do jogador
+  let len = state.len, theme = state.theme, hard = state.hard;
+  const pick = (opts, th) => opts.find(n=>themePool(n, th).length);
+  if(id==='hard') hard = true;
+  if(id==='long' && len<7){ len = pick([7,8], theme); if(!len){ theme = null; len = 7; } }
+  if(id==='short' && len>4){ len = pick([4,3], theme); if(!len){ theme = null; len = 4; } }
+  if(id==='theme' && theme!==missions.theme){
+    theme = missions.theme;
+    if(!themePool(len, theme).length){
+      const validos = [3,4,5,6,7,8].filter(n=>themePool(n, theme).length);
+      if(validos.length) len = validos.reduce((a,b)=>Math.abs(b-len)<Math.abs(a-len)?b:a);
+    }
+  }
+  if(len!==state.len || theme!==state.theme || hard!==state.hard){
+    if(state.duel) endDuel(); // o duelo trava esses ajustes
+    state.len = len; state.theme = theme; state.hard = hard;
+    document.getElementById('selTheme').value = theme || '';
+    document.getElementById('optHard').checked = hard;
+    buildSegments();
+    newGame();
+    saveSettings();
+    if(id==='hard') say('🪨 Modo difícil ligado');
+  }
+  // partida já terminada: começa outra pra já valer pra missão
+  else if(state.status==='win' || state.status==='lose') startFresh();
 }
 function renderAch(){
   const box = document.getElementById('stAch');
@@ -2230,6 +2270,12 @@ document.getElementById('variantList').addEventListener('click', e=>{
   if(!card) return;
   closeSheets();
   setVariant(card.dataset.variant);
+});
+document.getElementById('pfMissions').addEventListener('click', e=>{
+  const b = e.target.closest('[data-mission]');
+  if(!b) return;
+  b.blur(); // senão o próximo Enter reativa o botão em vez de enviar o palpite
+  goMission(b.dataset.mission);
 });
 document.getElementById('btnProfile').onclick=()=>{
   renderProfile();

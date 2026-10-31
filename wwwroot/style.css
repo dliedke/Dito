@@ -310,6 +310,23 @@ main{
 #varBar .turn.p1{background:rgba(168,85,247,.16)}
 
 /* ---------- dueto / quarteto: vários mini-tabuleiros ---------- */
+/* variações que escondem cores até o fim: contagem (todas as linhas, menos a
+   do acerto) e memória (todas menos a do último palpite) */
+#board.v-count .row:not(.win) .tile.reveal,
+#board.v-memory .row:not(.fresh) .tile.reveal{background:var(--tile-empty);border-color:var(--tile-border);color:var(--ink)}
+/* contagem: totais da linha ao lado dela */
+.row[data-count]{position:relative}
+.row[data-count]::after{
+  content:attr(data-count);white-space:pre;position:absolute;left:calc(100% + 6px);top:50%;transform:translateY(-50%);
+  font-size:12px;font-weight:700;line-height:1.25;font-variant-numeric:tabular-nums;color:var(--ink)
+}
+/* mentiroso: casinha que mentiu, revelada no fim */
+.tile.lied{position:relative;outline:3px dashed #ef4444;outline-offset:-3px}
+.tile.lied::after{content:'🤥';position:absolute;top:-9px;right:-7px;font-size:15px;line-height:1}
+/* anagrama: letras embaralhadas na barra da variação */
+#varBar .anagram{display:flex;gap:4px;flex-wrap:wrap}
+#varBar .anagram i{font-style:normal;font-weight:800;min-width:24px;height:26px;display:grid;place-items:center;
+  border-radius:6px;background:var(--key);padding:0 4px;text-transform:uppercase}
 #board.multi{--gap:4px;gap:16px 16px;align-items:start}
 #board.multi .mini{display:grid;gap:var(--gap);transition:opacity .4s ease}
 #board.multi .mini.solved{opacity:.5}

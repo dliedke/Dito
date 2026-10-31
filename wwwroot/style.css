@@ -394,13 +394,16 @@ main{
 .xpbar{height:10px;background:var(--key);border-radius:999px;overflow:hidden}
 .xpbar div{height:100%;background:var(--correct);border-radius:999px;transition:width .4s ease}
 .missions{list-style:none;margin:6px 0;padding:0;display:flex;flex-direction:column;gap:5px}
-.missions li{display:flex;gap:10px;align-items:center;background:var(--key);border-radius:10px;padding:9px 12px;font-size:13.5px}
-.missions li .ico{font-size:18px;flex:none}
-.missions li span:nth-child(2){flex:1}
-.missions li small{color:var(--ink-soft)}
-.missions li>b{font-size:12px;color:var(--ink-soft)}
-.missions li.ok{background:var(--correct);color:var(--correct-ink)}
-.missions li.ok>b{color:var(--correct-ink)}
+.missions .mis{display:flex;gap:10px;align-items:center;width:100%;border:0;cursor:pointer;text-align:left;font:inherit;color:var(--ink);background:var(--key);border-radius:10px;padding:9px 12px;font-size:13.5px;transition:filter .15s,transform .1s}
+.missions .mis:hover{filter:brightness(1.08)}
+.missions .mis:active{transform:scale(.98)}
+.missions .mis .ico{font-size:18px;flex:none}
+.missions .mis span:nth-child(2){flex:1}
+.missions .mis small{color:var(--ink-soft)}
+.missions .mis>b{font-size:12px;color:var(--ink-soft)}
+.missions .mis>b::after{content:' ›';font-size:15px}
+.missions .mis.ok{background:var(--correct);color:var(--correct-ink)}
+.missions .mis.ok>b{color:var(--correct-ink)}
 /* sincronização com a conta Google (dentro do 🎯) */
 .sync{border-top:1px solid var(--key);margin-top:12px;padding-top:4px}
 .sync .who{display:flex;gap:10px;align-items:center;margin:10px 0}
@@ -670,11 +673,11 @@ html[data-theme="doido"] #board.multi{--gap:5px;padding:16px 16px 22px}
 html[data-theme="doido"] #board.multi .tile{border-width:1px}
 html[data-theme="doido"] .key.split{color:#16242c;text-shadow:0 0 3px #fff,0 0 3px #fff}
 html[data-theme="doido"] .vcard,
-html[data-theme="doido"] .missions li,
+html[data-theme="doido"] .missions .mis,
 html[data-theme="doido"] .xpline,
 html[data-theme="doido"] .day{background:#263943;color:var(--ink)}
 html[data-theme="doido"] .day.win,
-html[data-theme="doido"] .missions li.ok,
+html[data-theme="doido"] .missions .mis.ok,
 html[data-theme="doido"] .xpline.up{background:var(--correct);color:var(--correct-ink)}
 html[data-theme="doido"] .day.lose{background:#3a4b55;color:var(--absent-ink)}
 html[data-theme="doido"] .hintbar,

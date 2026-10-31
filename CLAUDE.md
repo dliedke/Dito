@@ -226,6 +226,10 @@ jogo, painéis/tema, início). Pontos importantes:
     Nas `noGhost` a dica de posição pode cair numa casa já verde (o jogador
     não pode confiar nas cores); no Anagrama a 1ª dica vai direto pra posição
     (as letras já são conhecidas); nas `noKeys` o teclado mostra só a letra da dica.
+  - **Corrente**: a resposta nova nunca pode ser `state.run.prev` (o 1º
+    palpite automático) — num tema com uma palavra só no tamanho (ex.:
+    escola/3 letras = só GIZ) ela se acertava sozinha em loop. Se o tema não
+    tiver outra, `newGame()` sorteia do dicionário todo.
   - **Corrente/Morte súbita/Passa-e-joga**: estado da sequência em `state.run`
     (`initRun()`, `updateRun()` no `finish()`, `#varBar` via `renderVarBar()`);
     recordes em `runs` (`store['dito:runs']`), gravados já no acerto.

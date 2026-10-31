@@ -489,10 +489,19 @@ function newGame(forcedKey){
   if(forcedKey){
     key = forcedKey; // palavra do dia ou palavra de um desafio recebido por link
   } else {
-    key = pick(multiPool || usable);
+    let list = multiPool || usable;
     // corrente: a resposta nova não pode ser a mesma que vai entrar de 1º palpite
+    // (senão ela se acerta sozinha e a corrente entra em loop). Se o tema só
+    // tiver essa palavra nesse tamanho, a próxima vem do dicionário todo.
     const prev = v==='chain' && state.run?.prev;
-    for(let i=0; prev && key===prev && i<20; i++) key = pick(usable);
+    if(prev){
+      list = list.filter(k=>k!==prev);
+      if(!list.length){
+        list = DICT[state.len].keys.filter(k=>k!==prev);
+        say('O tema acabou nesse tamanho: o próximo elo vem de fora dele', 2200);
+      }
+    }
+    key = pick(list);
   }
   state.answer = key;
   state.answerRaw = DICT[state.len].words.get(key);

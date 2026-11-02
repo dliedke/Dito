@@ -254,8 +254,8 @@ const VARIANTS = {
            desc:'Só 3 tentativas. Acertar na 1ª vale 500 pontos, na 2ª 250, na 3ª 100. O primeiro erro acaba a rodada.'},
   pass:   {icon:'👥', name:'Passa-e-joga',
            desc:'Duas pessoas no mesmo aparelho revezam os palpites no mesmo tabuleiro. Ganha quem acertar!'},
-  liar:   {icon:'🤥', name:'Mentiroso',    tries:()=>8, noHard:true, noGhost:true,
-           desc:'Em cada palpite, uma casinha mostra a cor errada (menos no acerto). Desconfie de tudo: 8 tentativas, e no fim as mentiras são reveladas.'},
+  liar:   {icon:'🤥', name:'Mentiroso',    tries:()=>10, noHard:true, noGhost:true,
+           desc:'Ele mente um palpite sim, um não: no 1º, 3º, 5º... uma casinha mostra a cor errada; no 2º, 4º, 6º... tudo é verdade. 10 tentativas, e no fim as mentiras são reveladas.'},
   count:  {icon:'🔢', name:'Contagem',     tries:len=>len+5, noHard:true, noGhost:true, noKeys:true,
            desc:'As casinhas não mostram cor: ao lado de cada palpite aparece só quantas letras estão no lugar certo (🟩) e quantas estão na palavra em outro lugar (🟦). Tentativas = letras + 5.'},
   memory: {icon:'🧠', name:'Memória',      noHard:true, noGhost:true, noKeys:true,
@@ -1018,8 +1018,9 @@ function submit(){
 
   const truth = evaluate(g, state.answer);
   let res = truth, lie = null;
-  // mentiroso: uma casinha (fora do acerto) mostra outra cor
-  if(variant()==='liar' && g!==state.answer){
+  // mentiroso: nas linhas ímpares (1ª, 3ª, 5ª...) uma casinha mostra outra cor;
+  // nas pares (e no acerto) tudo é verdade
+  if(variant()==='liar' && g!==state.answer && state.row%2===0){
     lie = Math.floor(Math.random()*state.len);
     res = truth.slice();
     res[lie] = pickOne(['correct','present','absent'].filter(c=>c!==truth[lie]));

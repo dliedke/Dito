@@ -234,8 +234,9 @@ jogo, painéis/tema, início). Pontos importantes:
     (`initRun()`, `updateRun()` no `finish()`, `#varBar` via `renderVarBar()`);
     recordes em `runs` (`store['dito:runs']`), gravados já no acerto.
     Abandonar corrente/morte súbita com "Novo jogo" quebra a sequência.
-  - **Mentiroso** (`liar`): em `submit()` uma casinha por linha (fora do acerto)
-    ganha cor falsa; a linha guarda `truth`/`lie`, e a análise do fim usa
+  - **Mentiroso** (`liar`, 10 tentativas): em `submit()` uma casinha ganha cor
+    falsa só nas linhas ímpares (1ª, 3ª, 5ª... — `state.row%2===0`); as pares e
+    o acerto são sempre verdade (mentir em toda linha deixava impossível); a linha guarda `truth`/`lie`, e a análise do fim usa
     `truth`. `revealRow()` só mostra a letra da resposta se ela for certa de
     verdade (senão um verde falso vazaria a resposta). No fim,
     `revealVariantSecrets()` marca as mentiras (`.tile.lied`).

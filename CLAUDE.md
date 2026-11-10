@@ -1,6 +1,6 @@
 # Dito
 
-Jogo de adivinhar palavras em português, estilo Wordle/Termo. O jogo em si é
+Jogo de adivinhar palavras em português e inglês, estilo Wordle/Termo. O jogo em si é
 **100% front-end** (HTML/CSS/JS puro, sem build, sem framework, sem
 dependência de servidor). Publicado em https://dliedke.github.io/Dito/.
 
@@ -12,7 +12,7 @@ Dito.csproj                   → projeto ASP.NET Core, só hospeda os arquivos 
 Program.cs                    → host mínimo (UseDefaultFiles + UseStaticFiles), sem rotas/API
 Properties/launchSettings.json→ perfis de execução (F5 abre o navegador em localhost:5080)
 wwwroot/
-  index.html                  → estrutura da página
+  index.html                  → estrutura da página (+ script no <head> que decide o idioma)
   style.css                   → visual, temas claro/escuro, responsividade
   script.js                   → TODO o jogo: dicionário, estado, regras, UI
 .github/workflows/pages.yml   → publica wwwroot/ no GitHub Pages a cada push na main
@@ -34,6 +34,46 @@ servidor de arquivos estáticos para `wwwroot/`. Toda a lógica do jogo vive em
 Não há testes automatizados nem processo de build — para validar uma mudança,
 rode o jogo (F5 ou `dotnet run`) e jogue algumas partidas testando o cenário
 alterado.
+
+## Idiomas (português / inglês)
+
+- **Quem decide o idioma** é um script inline no `<head>` do `index.html`,
+  antes de qualquer coisa ser desenhada: (1) link de desafio `#w=` (6º campo
+  do payload), (2) `?lang=pt|en`, (3) escolha salva em `localStorage
+  'dito:lang'`, (4) `navigator.languages` (português → `pt`, qualquer outro →
+  `en`). Ele só grava `<html lang>`; o `script.js` lê dali (`LANG`). O idioma
+  de um link de desafio **não** é salvo — vale só pra aquela abertura.
+- **Trocar de idioma recarrega a página** (`#selLang` nos Ajustes grava
+  `dito:lang` e recarrega; sem localStorage, usa `?lang=`). Nada de trocar
+  dicionário/textos ao vivo — os `const` do dicionário são montados uma vez.
+- **Textos do JS**: `L(pt, en)` devolve o do idioma atual; `LOCALE` pra
+  `localeCompare`/datas; `ordinal(n)` (1ª/1º ↔ 1st). Toda string nova visível
+  ao jogador precisa passar por `L()`.
+- **Textos do HTML**: o `index.html` continua escrito em português; cada
+  elemento traduzível traz o inglês em `data-en` (vira `innerHTML`),
+  `data-en-title`, `data-en-label` (aria-label), `data-en-tip` (balão) ou
+  `data-en-content` (meta), aplicados por `translatePage()`. Texto dentro de
+  `<label>` com checkbox vai num `<span data-en>` (trocar o `innerHTML` do
+  label recriaria o input). Blocos longos (o "Como jogar") existem nos dois
+  idiomas com `data-lang="pt|en"`, e o CSS esconde o outro.
+- **Dicionário inglês**: `EN_WORDS` (categoria → palavras, mesmas chaves de
+  `GROUPS_RAW`/`GROUP_LABEL`), usado no lugar de `RAW`/`EXTRA`/`GROUPS_RAW`
+  quando `LANG==='en'` — entra pelo mesmo caminho do `EXTRA` (`EXTRA_SRC`).
+  `GROUP_LABEL` tem uma versão em inglês. Em inglês `BASE_COUNT` é o
+  dicionário todo. As invariantes de grupo valem igual; cada tema precisa de
+  pelo menos `BLITZ_MIN_THEME` palavras de 5 letras pra valer no relâmpago.
+  **Acrescentar palavras de 5 letras ao `EN_WORDS` muda a palavra do dia em
+  inglês** (mesmo cuidado do `DAILY_EXTRA_FROM`).
+- **Diário por idioma**: a palavra do dia é outra em cada idioma, então o
+  histórico também — `DAILY_KEY` (`dito:dailyHist` em português,
+  `dito:dailyHistEn` em inglês). Na sincronização os dois vão juntos
+  (`dailyHist`/`dailyHistEn` em `progressSnapshot()`/`mergeProgress()`/
+  `applyProgress()`; o do idioma que não está carregado vem direto do
+  localStorage). XP, conquistas, placar, recordes e missões são compartilhados.
+- **Desafio por link** leva o idioma no 6º campo (`len.tries.answer.hints.hard.lang`);
+  links antigos (sem ele, ou com o antigo 0/1 de "aceitar qualquer palavra")
+  abrem em português.
+- Dicionário de significado no fim: Dicio em português, Merriam-Webster em inglês.
 
 ## Arquitetura de `script.js`
 
@@ -122,10 +162,11 @@ jogo, painéis/tema, início). Pontos importantes:
   os tamanhos sem palavra suficiente no tema escolhido; ao trocar de tema
   (`selTheme`), se o tamanho atual ficar sem palavra, pula pro tamanho válido
   mais próximo — nunca deixar o jogador escolher uma combinação vazia.
-- **Duelo por link**: `challenge()` codifica `len.tries.answer.hints.hard`
+- **Duelo por link**: `challenge()` codifica `len.tries.answer.hints.hard.lang`
   em base64 no hash da URL (`#w=...`); `decodeChallenge()` valida e devolve
   `{len,tries,key,hints,hard}` (com padrões pra links antigos de 3 campos;
-  o 6º campo de links antigos, "aceitar qualquer palavra", é ignorado)
+  o 6º campo — idioma, ou o antigo "aceitar qualquer palavra" — já foi
+  tratado pelo `<head>` e é ignorado aqui)
   ou `null`. Só é honra entre amigos — o hash é trivial de decodificar, não é
   pensado como anti-cheat. O botão "🔗 Desafiar" (`btnChallenge`) fica nas
   hint-actions, disponível a qualquer momento da partida (não só no fim) —

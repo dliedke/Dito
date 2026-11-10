@@ -3,68 +3,99 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Dito — jogo de adivinhar palavras em português, no estilo Wordle/Termo.">
+<meta name="description" content="Dito — jogo de adivinhar palavras em português, no estilo Wordle/Termo." data-en-content="Dito — a word guessing game in Portuguese and English, in the style of Wordle.">
 <meta name="theme-color" id="metaTheme" content="#f2f3f5">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23b9e02b'/%3E%3Ctext x='32' y='45' font-family='Arial,sans-serif' font-size='36' font-weight='800' text-anchor='middle' fill='%2316181d'%3ED%3C/text%3E%3C/svg%3E">
-<title>Dito — adivinhe a palavra</title>
+<title data-en="Dito — guess the word">Dito — adivinhe a palavra</title>
+<script>
+/* idioma, decidido antes de desenhar a página (script.js lê de <html lang>):
+   1) link de desafio (#w=..., 6º campo) — a palavra só existe no idioma de quem criou;
+   2) ?lang=pt|en na URL; 3) escolha salva no seletor ('dito:lang');
+   4) idioma do navegador (português → pt, qualquer outro → en) */
+(function(){
+  var lang = null, h = location.hash;
+  if(h.indexOf('#w=')===0){
+    try{ lang = decodeURIComponent(atob(h.slice(3))).split('.')[5]==='en' ? 'en' : 'pt'; }catch(e){}
+  }
+  if(!lang){ var q = /[?&]lang=(pt|en)\b/.exec(location.search); if(q) lang = q[1]; }
+  if(!lang){ try{ lang = localStorage.getItem('dito:lang'); }catch(e){} }
+  if(lang!=='pt' && lang!=='en'){
+    var list = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ''];
+    lang = 'en';
+    for(var i=0;i<list.length;i++){
+      var x = String(list[i]).toLowerCase();
+      if(x.indexOf('pt')===0){ lang = 'pt'; break; }
+      if(x.indexOf('en')===0) break;
+    }
+  }
+  document.documentElement.lang = lang==='en' ? 'en' : 'pt-BR';
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=27">
+<link rel="stylesheet" href="style.css?v=28">
 </head>
 <body>
 
 <header>
   <div class="brand" aria-label="Dito"><span>D</span><span>I</span><span>T</span><span>O</span></div>
   <div class="tools">
-    <button class="icon-btn" id="btnConfig" aria-expanded="true">Ajustes</button>
-    <button class="icon-btn" id="btnProfile" title="Nível e missões do dia">🎯 Nv 1</button>
-    <button class="icon-btn" id="btnStats">Placar</button>
-    <button class="icon-btn" id="btnHelp" aria-label="Como jogar">?</button>
-    <button class="icon-btn" id="btnSound" aria-label="Ativar ou desativar som" aria-pressed="true">🔊</button>
-    <button class="icon-btn" id="btnTheme" aria-label="Alternar visual (claro, escuro, 3D)">🌙</button>
+    <button class="icon-btn" id="btnConfig" aria-expanded="true" data-en="Settings">Ajustes</button>
+    <button class="icon-btn" id="btnProfile" title="Nível e missões do dia" data-en-title="Level and daily missions">🎯 Nv 1</button>
+    <button class="icon-btn" id="btnStats" data-en="Stats">Placar</button>
+    <button class="icon-btn" id="btnHelp" aria-label="Como jogar" data-en-label="How to play">?</button>
+    <button class="icon-btn" id="btnSound" aria-label="Ativar ou desativar som" data-en-label="Turn sound on or off" aria-pressed="true">🔊</button>
+    <button class="icon-btn" id="btnTheme" aria-label="Alternar visual (claro, escuro, 3D)" data-en-label="Switch look (light, dark, 3D)">🌙</button>
   </div>
 </header>
 
 <section class="config" id="config">
   <div class="field">
-    <label>Letras</label>
-    <div class="seg" id="segLen" role="group" aria-label="Número de letras"></div>
+    <label data-en="Letters">Letras</label>
+    <div class="seg" id="segLen" role="group" aria-label="Número de letras" data-en-label="Number of letters"></div>
   </div>
   <div class="field">
-    <label>Tentativas</label>
-    <div class="seg" id="segTries" role="group" aria-label="Número de tentativas"></div>
+    <label data-en="Tries">Tentativas</label>
+    <div class="seg" id="segTries" role="group" aria-label="Número de tentativas" data-en-label="Number of tries"></div>
   </div>
   <div class="field" id="fieldTheme">
-    <label>Tema</label>
-    <select id="selTheme" aria-label="Tema das palavras"></select>
+    <label data-en="Theme">Tema</label>
+    <select id="selTheme" aria-label="Tema das palavras" data-en-label="Word theme"></select>
   </div>
-  <label class="check"><input type="checkbox" id="optHints" checked> Dicas no fim
-    <button type="button" class="tip" aria-label="O que é: Dicas no fim" data-tip="Nas 2 últimas tentativas o jogo dá uma ajuda: primeiro diz uma letra que está na palavra, depois deixa marcada a posição de uma letra.">i</button></label>
-  <label class="check"><input type="checkbox" id="optHard"> Modo difícil
-    <button type="button" class="tip end" aria-label="O que é: Modo difícil" data-tip="Toda pista revelada precisa ser usada: as letras verdes ficam travadas no lugar e as azuis têm que aparecer no palpite seguinte. Só dá pra ligar no começo da partida.">i</button></label>
-  <label class="check"><input type="checkbox" id="optVibe" checked> Vibração</label>
+  <label class="check"><input type="checkbox" id="optHints" checked> <span data-en="Hints at the end">Dicas no fim</span>
+    <button type="button" class="tip" aria-label="O que é: Dicas no fim" data-en-label="What is: Hints at the end" data-tip="Nas 2 últimas tentativas o jogo dá uma ajuda: primeiro diz uma letra que está na palavra, depois deixa marcada a posição de uma letra." data-en-tip="On your last 2 tries the game helps out: first it tells you a letter that is in the word, then it marks the position of a letter.">i</button></label>
+  <label class="check"><input type="checkbox" id="optHard"> <span data-en="Hard mode">Modo difícil</span>
+    <button type="button" class="tip end" aria-label="O que é: Modo difícil" data-en-label="What is: Hard mode" data-tip="Toda pista revelada precisa ser usada: as letras verdes ficam travadas no lugar e as azuis têm que aparecer no palpite seguinte. Só dá pra ligar no começo da partida." data-en-tip="Every revealed clue must be used: green letters stay locked in place and blue ones must appear in your next guess. Can only be turned on at the start of a game.">i</button></label>
+  <label class="check"><input type="checkbox" id="optVibe" checked> <span data-en="Vibration">Vibração</span></label>
+  <div class="field" id="fieldLang">
+    <label for="selLang" data-en="Language">Idioma</label>
+    <select id="selLang" aria-label="Idioma / Language">
+      <option value="pt">Português</option>
+      <option value="en">English</option>
+    </select>
+  </div>
 </section>
 
 <main>
-  <div class="mode-tabs" id="modeTabs" role="group" aria-label="Modo de jogo">
-    <button class="tab" id="tabDaily" data-mode="daily" title="Uma palavra de 5 letras por dia, a mesma pra todo mundo">📅 Diário</button>
-    <button class="tab" id="tabFree" data-mode="free" aria-pressed="true" title="Quantas partidas quiser, com as letras, tentativas e tema dos Ajustes">♾️ Infinito</button>
-    <button class="tab" id="tabBlitz" data-mode="blitz" title="Contra o relógio: acerte o máximo de palavras em 2min30">⚡ Relâmpago</button>
-    <button class="tab" id="tabVariant" data-mode="variant" title="Dueto, Quarteto, Trapaceiro, Corrente, Morte súbita, Passa-e-joga, Mentiroso, Contagem, Memória, Escada e Anagrama">🎲 Variações</button>
+  <div class="mode-tabs" id="modeTabs" role="group" aria-label="Modo de jogo" data-en-label="Game mode">
+    <button class="tab" id="tabDaily" data-mode="daily" title="Uma palavra de 5 letras por dia, a mesma pra todo mundo" data-en-title="One 5-letter word a day, the same for everyone" data-en="📅 Daily">📅 Diário</button>
+    <button class="tab" id="tabFree" data-mode="free" aria-pressed="true" title="Quantas partidas quiser, com as letras, tentativas e tema dos Ajustes" data-en-title="As many games as you like, with the letters, tries and theme from Settings" data-en="♾️ Unlimited">♾️ Infinito</button>
+    <button class="tab" id="tabBlitz" data-mode="blitz" title="Contra o relógio: acerte o máximo de palavras em 2min30" data-en-title="Against the clock: guess as many words as you can in 2:30" data-en="⚡ Blitz">⚡ Relâmpago</button>
+    <button class="tab" id="tabVariant" data-mode="variant" title="Dueto, Quarteto, Trapaceiro, Corrente, Morte súbita, Passa-e-joga, Mentiroso, Contagem, Memória, Escada e Anagrama" data-en-title="Duet, Quartet, Cheater, Chain, Sudden death, Pass &amp; play, Liar, Count, Memory, Ladder and Anagram">🎲 Variações</button>
   </div>
   <div class="hint-actions">
-    <button class="btn ghost" id="btnGroupHint" title="Mostra o grupo temático da palavra secreta (uma vez por partida)">💡 Dica de grupo</button>
+    <button class="btn ghost" id="btnGroupHint" title="Mostra o grupo temático da palavra secreta (uma vez por partida)" data-en-title="Shows the theme group of the secret word (once per game)" data-en="💡 Group hint">💡 Dica de grupo</button>
     <button class="btn ghost" id="btnNewGame" title="Abandona esta partida e sorteia outra palavra">🔄 Novo jogo</button>
-    <button class="btn ghost" id="btnChallenge" title="Copia um link com esta palavra pra um amigo tentar a mesma">🔗 Desafiar</button>
+    <button class="btn ghost" id="btnChallenge" title="Copia um link com esta palavra pra um amigo tentar a mesma" data-en-title="Copies a link with this word so a friend can try the same one" data-en="🔗 Challenge">🔗 Desafiar</button>
   </div>
   <div id="blitzBar" hidden aria-live="off"></div>
   <div id="varBar" hidden aria-live="polite"></div>
   <div id="hint" aria-live="polite"></div>
-  <div id="board" role="grid" aria-label="Tabuleiro"></div>
+  <div id="board" role="grid" aria-label="Tabuleiro" data-en-label="Board"></div>
   <div id="end"></div>
 </main>
 
@@ -73,7 +104,8 @@
 
 <div class="sheet" id="sheetHelp">
   <div class="sheet-card">
-    <h2>Como jogar</h2>
+    <h2 data-en="How to play">Como jogar</h2>
+    <div data-lang="pt">
     <p>Descubra a palavra secreta antes de acabarem as tentativas. Cada palpite precisa ter o número de letras escolhido.</p>
     <div class="legend"><div class="t correct" style="background:var(--correct);color:var(--correct-ink)">L</div> A letra está na palavra e na posição certa.</div>
     <div class="legend"><div class="t present" style="background:var(--present);color:var(--present-ink)">U</div> A letra está na palavra, mas em outra posição.</div>
@@ -94,64 +126,88 @@
     <p>No fim da partida dá pra ver o significado da palavra no Dicio e compartilhar o resultado como texto ou como <b>🖼️ imagem</b> (só as cores, sem entregar a palavra).</p>
     <p>Em <b>🎯</b> dá pra <b>entrar com o Google</b> e sincronizar XP, conquistas, placar, recordes e o histórico do diário entre celular e computador (tudo fica numa pasta escondida do seu próprio Google Drive). Se os aparelhos discordarem, nada se perde: fica o maior XP e todas as conquistas e recordes dos dois.</p>
     <p>Jogando, você desbloqueia <b>🏆 conquistas</b> (acertar de primeira, vencer no modo difícil, explorar vários temas...). Veja todas no <b>Placar</b>.</p>
-    <button class="btn ghost close" data-close>Fechar</button>
+    <p>O jogo existe em <b>português e inglês</b> — cada idioma tem a sua lista de palavras e a sua palavra do dia. Troque em <b>Ajustes → Idioma</b>.</p>
+    </div>
+    <div data-lang="en">
+    <p>Find the secret word before you run out of tries. Every guess must have the chosen number of letters.</p>
+    <div class="legend"><div class="t correct" style="background:var(--correct);color:var(--correct-ink)">W</div> The letter is in the word and in the right spot.</div>
+    <div class="legend"><div class="t present" style="background:var(--present);color:var(--present-ink)">O</div> The letter is in the word, but in another spot.</div>
+    <div class="legend"><div class="t absent" style="background:var(--absent);color:var(--absent-ink)">X</div> The letter is not in the word.</div>
+    <p>In <b>hard mode</b>, every revealed clue must be used in your next guess, and green letters you already found stay locked in place. Without it you can guess anything — greens only show up faded as a reminder.</p>
+    <p>The <b>💡 Group hint</b> button (once per game) reveals which theme group the secret word belongs to — animals, food, emotions, actions... — along with another word from the same group as an example.</p>
+    <p>In <b>📅 Daily</b> mode everyone plays the same 5-letter word on the same day (one game a day); in <b>♾️ Unlimited</b> the letters, tries and theme from Settings apply.</p>
+    <p>In <b>Settings → Theme</b> you can limit the draw to one category (animals, food, emotions...). Lengths without enough words in that theme are disabled.</p>
+    <p>The <b>🔗 Challenge</b> button copies, at any point during a game, a link with the current word so a friend can try the same one — since neither of you sees the answer before playing, it's a fair duel. The hints and hard mode settings travel with the link and stay locked to the creator's choice. Disabled in Daily mode (the word is already the same for everyone) and during an ongoing duel.</p>
+    <p>The <b>🔄 New game</b> button gives up the current game and draws another word at any time (not available in Daily mode).</p>
+    <p>In <b>⚡ Blitz</b> you race the clock: 2:30 to guess as many 5-letter words as you can. Each correct word gives you <b>30 seconds</b> back and is worth points: 100 + 20 per unused try + 25 per word in a row (🔥 combo). Your 10 best results are saved in this browser, under Stats. You can skip a hard word for 10 seconds. The clock only starts when you type the first letter.</p>
+    <p>At the end of every game, the <b>🔍</b> line shows how many words were still possible after each guess — see which guess was the smartest.</p>
+    <p>The <b>☀️ / 🌙 / 🌀</b> button at the top switches the look: light, dark and <b>3D</b>, with soft colors, raised tiles and keys that press down. On a computer, the board follows the mouse with a subtle tilt.</p>
+    <p>The <b>🎲 Variants</b> tab has different ways to play Unlimited: <b>🧩 Duet</b> and <b>🀄 Quartet</b> (2 or 4 words at once, every guess counts for all of them — keys are split with each board's color), <b>😈 Cheater</b> (the game dodges your guess by switching words), <b>⛓️ Chain</b> (the word you guessed becomes the 1st guess of the next one), <b>💀 Sudden death</b> (3 tries, points per word, the first miss ends the round), <b>👥 Pass &amp; play</b> (two people taking turns on the same device), <b>🤥 Liar</b> (every other guess, one tile shows the wrong color), <b>🔢 Count</b> (no colors, only how many letters are right), <b>🧠 Memory</b> (only the last guess stays colored), <b>🪜 Ladder</b> (from 3 to 8 letters, one step per win) and <b>🔀 Anagram</b> (the letters come scrambled, you just need the order).</p>
+    <p>In Daily, the <b>📚 Archive</b> button opens a calendar to play the days you missed. Your streak of days in a row appears under Stats.</p>
+    <p>Every game earns <b>XP</b> and raises your level. Under <b>🎯</b> you'll find the <b>3 daily missions</b> (the same for everyone), which give extra XP.</p>
+    <p>At the end of a game you can look up the word in the dictionary and share your result as text or as an <b>🖼️ image</b> (colors only, no spoilers).</p>
+    <p>Under <b>🎯</b> you can <b>sign in with Google</b> to sync XP, achievements, stats, records and daily history between phone and computer (it's all kept in a hidden folder in your own Google Drive). If devices disagree, nothing is lost: the highest XP and every achievement and record from both are kept.</p>
+    <p>As you play, you unlock <b>🏆 achievements</b> (guessing on the first try, winning in hard mode, exploring many themes...). See them all under <b>Stats</b>.</p>
+    <p>The game is available in <b>Portuguese and English</b> — each language has its own word list and its own word of the day. Change it under <b>Settings → Language</b>.</p>
+    </div>
+    <button class="btn ghost close" data-close data-en="Close">Fechar</button>
   </div>
 </div>
 
 <div class="sheet" id="sheetStats">
   <div class="sheet-card">
-    <h2>Placar</h2>
-    <p>Somando todos os tamanhos de palavra, salvo neste navegador.</p>
+    <h2 data-en="Stats">Placar</h2>
+    <p data-en="All word lengths combined, saved in this browser.">Somando todos os tamanhos de palavra, salvo neste navegador.</p>
     <div class="stats">
-      <div class="stat"><b id="stPlayed">0</b><span>Jogos</span></div>
-      <div class="stat"><b id="stWins">0</b><span>Vitórias</span></div>
-      <div class="stat"><b id="stRate">0%</b><span>Aproveitamento</span></div>
-      <div class="stat"><b id="stStreak">0</b><span>Sequência</span></div>
+      <div class="stat"><b id="stPlayed">0</b><span data-en="Played">Jogos</span></div>
+      <div class="stat"><b id="stWins">0</b><span data-en="Wins">Vitórias</span></div>
+      <div class="stat"><b id="stRate">0%</b><span data-en="Win rate">Aproveitamento</span></div>
+      <div class="stat"><b id="stStreak">0</b><span data-en="Streak">Sequência</span></div>
     </div>
-    <p>Distribuição de tentativas (vitórias)</p>
+    <p data-en="Guess distribution (wins)">Distribuição de tentativas (vitórias)</p>
     <div class="dist" id="stDist"></div>
-    <p>📅 Palavra do dia</p>
+    <p data-en="📅 Word of the day">📅 Palavra do dia</p>
     <div id="stDaily"></div>
-    <p>🎲 Recordes das variações</p>
+    <p data-en="🎲 Variant records">🎲 Recordes das variações</p>
     <div class="runs" id="stRuns"></div>
-    <p>⚡ Seus recordes no Relâmpago</p>
+    <p data-en="⚡ Your Blitz records">⚡ Seus recordes no Relâmpago</p>
     <div id="stBlitz"></div>
-    <p>Conquistas <b id="stAchCount"></b></p>
+    <p><span data-en="Achievements">Conquistas</span> <b id="stAchCount"></b></p>
     <div class="ach" id="stAch"></div>
-    <button class="btn ghost close" data-close>Fechar</button>
+    <button class="btn ghost close" data-close data-en="Close">Fechar</button>
   </div>
 </div>
 
 <div class="sheet" id="sheetVariant">
   <div class="sheet-card">
-    <h2>🎲 Variações</h2>
-    <p>Jeitos diferentes de jogar o Infinito. As letras e o tema dos Ajustes continuam valendo.</p>
+    <h2 data-en="🎲 Variants">🎲 Variações</h2>
+    <p data-en="Different ways to play Unlimited. The letters and theme from Settings still apply.">Jeitos diferentes de jogar o Infinito. As letras e o tema dos Ajustes continuam valendo.</p>
     <div class="vlist" id="variantList"></div>
-    <button class="btn ghost close" data-close>Fechar</button>
+    <button class="btn ghost close" data-close data-en="Close">Fechar</button>
   </div>
 </div>
 
 <div class="sheet" id="sheetArchive">
   <div class="sheet-card">
-    <h2>📚 Arquivo do diário</h2>
-    <p>Toque num dia para jogar a palavra dele (ou rever o resultado). Dias jogados pelo arquivo não contam na sequência.</p>
+    <h2 data-en="📚 Daily archive">📚 Arquivo do diário</h2>
+    <p data-en="Tap a day to play its word (or see your result again). Days played from the archive don't count toward your streak.">Toque num dia para jogar a palavra dele (ou rever o resultado). Dias jogados pelo arquivo não contam na sequência.</p>
     <div id="archiveBody"></div>
-    <button class="btn ghost close" data-close>Fechar</button>
+    <button class="btn ghost close" data-close data-en="Close">Fechar</button>
   </div>
 </div>
 
 <div class="sheet" id="sheetProfile">
   <div class="sheet-card">
-    <h2>🎯 Nível e missões</h2>
+    <h2 data-en="🎯 Level and missions">🎯 Nível e missões</h2>
     <div class="level" id="pfLevel"></div>
-    <p>Missões de hoje <small>(renovam à meia-noite · toque pra ir direto)</small></p>
+    <p data-en="Today's missions &lt;small&gt;(renewed at midnight · tap to jump right in)&lt;/small&gt;">Missões de hoje <small>(renovam à meia-noite · toque pra ir direto)</small></p>
     <ul class="missions" id="pfMissions"></ul>
-    <p>Cada partida dá XP: vitórias valem mais com tentativas sobrando, palavras longas, modo difícil e variações difíceis. Perder ainda dá um pouquinho.</p>
+    <p data-en="Every game earns XP: wins are worth more with tries to spare, long words, hard mode and tough variants. Losing still gives a little.">Cada partida dá XP: vitórias valem mais com tentativas sobrando, palavras longas, modo difícil e variações difíceis. Perder ainda dá um pouquinho.</p>
     <div class="sync" id="pfSync" hidden></div>
-    <button class="btn ghost close" data-close>Fechar</button>
+    <button class="btn ghost close" data-close data-en="Close">Fechar</button>
   </div>
 </div>
 
-<script src="script.js?v=32"></script>
+<script src="script.js?v=33"></script>
 </body>
 </html>

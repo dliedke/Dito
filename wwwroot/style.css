@@ -118,7 +118,7 @@ header{
 .seg button[aria-pressed="true"]{background:var(--correct);color:var(--correct-ink)}
 .check{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:500;cursor:pointer;padding:4px 0}
 .check input{width:18px;height:18px;accent-color:var(--present);flex:none}
-#selTheme{
+#selTheme,#selLang{
   border:1px solid var(--line);background:var(--key);color:var(--key-ink);
   border-radius:8px;height:32px;padding:0 8px;font-weight:600;font-size:13px;
   max-width:160px;
@@ -152,6 +152,8 @@ header{
   .tip::after,.tip.end::after{left:12px;right:12px;top:calc(100% + 6px);transform:none;width:auto;max-width:none}
 }
 .field.locked{opacity:.45;pointer-events:none}
+/* textos longos nos dois idiomas (ex.: "Como jogar"): só aparece o do idioma atual */
+html[lang="en"] [data-lang="pt"], html:not([lang="en"]) [data-lang="en"]{display:none}
 .check.locked{opacity:.45;pointer-events:none}
 .check.locked .tip{pointer-events:auto} /* explicação continua acessível durante o duelo */
 
@@ -607,7 +609,7 @@ html[data-theme="doido"] .icon-btn{
 }
 html[data-theme="doido"] .icon-btn:hover{background:#2d414d}
 html[data-theme="doido"] .icon-btn:active{transform:translateY(2px);box-shadow:none}
-html[data-theme="doido"] #selTheme{
+html[data-theme="doido"] #selTheme,html[data-theme="doido"] #selLang{
   background:#14232d;color:var(--ink);border-color:var(--line);height:38px;
 }
 html[data-theme="doido"] .seg{background:#14232d;box-shadow:inset 0 1px 3px rgba(0,0,0,.18)}

@@ -1,4 +1,21 @@
 /* =========================================================
+   IDIOMA — 'pt' ou 'en'. Decidido pelo script no <head> do index.html
+   (idioma de um link de desafio, ?lang=, escolha salva em 'dito:lang' ou o
+   idioma do navegador), antes de qualquer coisa ser desenhada. Trocar de
+   idioma recarrega a página: o dicionário inteiro muda junto.
+   L(pt, en) devolve o texto do idioma atual.
+   ========================================================= */
+const LANG = (document.documentElement.lang||'').toLowerCase().startsWith('en') ? 'en' : 'pt';
+const L = (pt, en) => LANG==='en' ? en : pt;
+const LOCALE = L('pt-BR', 'en-US');
+/* 1ª, 2º... em português; 1st, 2nd... em inglês */
+function ordinal(n, pt='ª'){
+  if(LANG!=='en') return n + pt;
+  const s = n%100>=11 && n%100<=13 ? 'th' : ({1:'st', 2:'nd', 3:'rd'}[n%10] || 'th');
+  return n + s;
+}
+
+/* =========================================================
    DICIONÁRIO — palavras por tamanho (3 a 8 letras)
    ========================================================= */
 const RAW = {
@@ -53,6 +70,49 @@ gramatica:`algo algum alguma algumas alguns alguém ali aliás ante após aquela
 abstrato:`absurdo abuso acaso aceno acerto acesso achado ajuda ajuste alarde alarme alcance alerta aliança alvo alvoroço ambição amparo anseio análise apelo apoio aposta apreço apuro arbítrio ardil assombro assuntos astúcia atitude ato auge ausência autoria aval azar ação bagunça bloqueio boato bobagem bocado bondade brecha busca bênção cadência calvário campanha caos capricho carga caridade carisma caráter casos castigo causa causas cautela censura cerne certeza chamado chance chances charada charme choque cilada clamor cobiça coesão coisas colapso comando começo começos comoção conceito conduta conflito conjunto consenso consolo contexto contrato convite cortesia costume costumes crenças crise critério crédito culturas dano decisão declínio decoro decência defesa delírio demanda descaso descuido desculpa desdém desejos desfecho desfeita desgaste deslize desordem destinos destreza desígnio devaneio devoção dilema direção disfarce domínio dote dúvida dúvidas efeitos eficácia embaraço empatia empenho encargo energia enfoque engano engenho enredo entrave equívoco escape esforços esmero espanto espera essência estima estrago estímulo euforia evento excesso exceção exílio faceta fadiga falha falência fama farsa fascínio fator fatos façanha feito fenômeno fervor fiasco finais firmeza fluxo fobia foco folia formas fracasso fraqueza frescor fôlego gafe garantia gesto glória gozo gratidão graça guerra heresia honra hábito hábitos ideais ideias impacto impasse impulso incêndio instinto insulto intenção intriga intuito inveja inércia ironia jeito jornada juízo júbilo lacuna lados lamento lapso lavagem lealdade legado leveza licença limite limites lucidez maldade malícia mania manobra melodia mentira mentiras mesmice metáfora miragem mistério modos modéstia moral motivos mérito noção noções níveis objetivo obsessão ofensa ofício omissão origens ousadia palpite paradoxo partes pavor perjúrio perícia pesadelo pique pivô planos pobreza polêmica pompa pontos potência praga presença pressa pretexto primor prodígio proeza proveito prática pudor pureza queixa rancor rapidez rastro razões receio reflexo registro relação remorso renome renúncia reparos repúdio requinte respeito retorno revolta revés rigor risco ritual ruptura ruína sanidade segredos sentido simpatia sina situação sobra solidão sonhos sossego sufoco suporte suspeita símbolo teimosia temas tentação teor teorias termo ternura terror timidez tipos tolice toque tormento tragédia transe trapaça trauma traço triunfo tropeço truque tática ultraje urgência utopia vaidade valentia variação verdade vergonha vertigem vestígio vexame vigor vigília vingança virada viés vocação vínculo zelo ânsia ênfase êxito êxodo ímpeto índice ócio`
 };
 
+/* =========================================================
+   DICIONÁRIO EM INGLÊS — usado só com LANG==='en' (no lugar de RAW, EXTRA
+   e GROUPS_RAW). Já separado pelas mesmas categorias de GROUPS_RAW, uma
+   palavra por grupo (a primeira categoria que a lista vale).
+   ========================================================= */
+const EN_WORDS = {
+animais:`ant ape bat bee bird boar bug bull calf camel cat cattle chick cobra cod cow crab crane crow cub deer dingo dog dolphin donkey dove duck eagle eel elephant elk emu ewe falcon ferret finch fish flea fly foal fox frog gecko gerbil giraffe gnat gnu goat goose gorilla grouse gull hamster hare hawk hen heron hippo hog horse hound hyena ibis iguana insect jackal jaguar kitten koala lamb lark leopard lion lizard llama lobster louse lynx macaw mammal mantis mare marmot mink mole monkey moose moth mouse mule newt octopus orca ostrich otter owl oyster panda panther parrot peacock pelican penguin pet pig pigeon piglet pony poodle possum puffin puma puppy python quail rabbit raccoon ram rat raven reptile rhino robin rodent rooster salmon sardine seal shark sheep shrimp skunk sloth slug snail snake sparrow spider squid stork swan tadpole tiger toad trout tuna turkey turtle viper vulture walrus wasp weasel whale wolf worm yak zebra beast beetle bunny bison buffalo cheetah chicken coyote cricket gazelle hornet kangaroo lemur mussel pheasant pigeons scorpion seagull starling stallion termite toucan antelope herd flock nest feather paw hoof tail fang claw beak wing horn shell fur mane`,
+plantas:`acorn bamboo bark bean berry blossom branch bud bulb bush cactus cedar clover corn cotton daisy elm fern fig fir flower forest garden grass hay hedge herb ivy leaf lily lotus maple moss mint oak orchid palm petal pine pollen poppy reed root rose sage seed shrub sprout stem stalk thorn tree tulip twig vine weed willow wheat oats rye barley tobacco birch ash yew aloe basil thyme tomato potato carrot onion garlic lettuce cabbage spinach celery pepper pumpkin squash radish turnip pea peas beet leek kale cucumber broccoli parsley ginger lavender jasmine violet iris seedling sapling grove meadow orchard harvest crop vineyard greens foliage trunk bloom`,
+frutas:`apple apricot avocado banana cherry coconut date grape guava kiwi lemon lime mango melon olive orange papaya peach pear plum prune raisin lychee citrus berries fruit quince currant mandarin`,
+comida:`bacon bagel bake beef bread brunch bun burger butter cake candy cereal cheese chips chop chowder cocoa cookie cracker cream crepe crust curry dessert dinner dough donut egg eggs feast fillet flour fries fudge gravy ham honey icing jam jelly ketchup lard lunch meal meat meatball mousse muffin mustard noodle noodles nut oatmeal omelet pancake pasta pastry pate pie pizza popcorn pork porridge pretzel pudding rice roast salad salami salsa salt sauce sausage scone snack soup spice steak stew sugar sushi syrup taco tart toast tofu tortilla vinegar waffle yogurt food dish menu recipe supper picnic flavor sweet spicy salty sour bitter yolk crumb slice loaf broth stuffing biscuit caramel cupcake brownie granola lasagna risotto ravioli burrito sandwich hotdog ribs wings chili olives nuts almond peanut walnut cashew pecan hazelnut vanilla cinnamon nutmeg oregano mayo grill fry boil`,
+bebidas:`ale beer brandy cider cocktail coffee cola drink gin juice latte lemonade liquor milk mocha punch rum sake soda tea tequila vodka whiskey wine water shake smoothie espresso sip gulp brew mojito nectar tonic`,
+cores:`amber azure beige black blue bronze brown coral crimson cyan gold golden gray green grey indigo ivory khaki lilac magenta maroon navy ochre pink purple red rust scarlet silver tan teal white yellow color colors hue shade tint pastel neon pale dark bright`,
+corpo:`ankle arm armpit back belly blood bone brain brow cheek chest chin ear elbow eye eyebrow eyelash face finger fist foot forehead gum hair hand head heart heel hip jaw kidney knee knuckle leg lip liver lung mouth muscle nail navel neck nerve nose pupil rib scalp shin shoulder skin skull spine stomach teeth thigh throat thumb toe tongue tooth vein waist wrist body limb torso pelvis tissue organ cell nostril eyelid temple joint lungs bones fingers toes`,
+saude:`ache allergy aspirin bandage cast clinic cold cough cure diet disease doctor dose drug fever flu germ health heal ill illness injury itch medic nausea nurse pain patient pill rash remedy scar sick sneeze sore surgery swelling therapy tumor ulcer vaccine virus vitamin wound asthma bruise burn cramp faint fracture headache insomnia migraine pulse sprain stress sweat tablet ointment syringe dentist hospital checkup recovery fitness wellness hygiene`,
+casa:`attic bath bathtub bed bedroom blanket blinds bowl broom bucket cabinet carpet ceiling chair closet cot couch crib cup cupboard curtain cushion desk doormat drawer dresser duvet fridge fork freezer furnace garage glass hallway heater home house iron kettle kitchen knife ladle lamp lounge mat mattress mirror mop mug napkin oven pan pantry pillow plate pot quilt rug saucer shelf shower sink soap sofa spoon stool stove table teapot toaster toilet towel tray vase window sheet sponge laundry porch patio balcony lawn yard fence gate hammock cozy chores tidy dust`,
+construcao:`arch beam bolt brick bridge cement clay column concrete dam dome drill floor girder granite gravel hammer joist ladder lumber marble mortar pillar pipe plank plaster plumber rafter roof scaffold screw shingle slab steel stone stucco tile timber tower tunnel wall weld wire wrench beams bricks chisel cable asphalt pavement trowel shovel builder level saw mallet frame frames hinge hinges ramp stairs steps chimney gutter`,
+objetos:`anchor badge bag ball balloon basket bell belt bin bottle box brush button candle cane card chain clip clock coin comb compass cord crate crown cube dart dice doll fan flag flask funnel gadget gift glue hanger hook jar jug key kit knot label lantern lens lid lock magnet mask match needle net pad pail paper pen pencil pin plug pouch purse rack radio rope ruler sack scale scissors shield sign spool stamp string tag tape thread tool torch toy trap tube umbrella vial wallet wand watch whistle wheel zipper bracelet necklace ring earring sticker marker crayon eraser stapler battery charger remote camera phone laptop speaker headset helmet glasses goggles trophy medal ribbon parcel package envelope backpack suitcase tent sword spear arrow bow axe gun bullet cannon`,
+roupas:`apron beret bikini blazer blouse boot boots bra cap cape cardigan cloak coat collar corset cuff denim dress fabric glove gloves gown hat heels hood jacket jeans jersey kilt knit lace leather linen mitten nylon outfit pajamas pants parka pocket polo poncho robe sandal sari satin scarf shawl shirt shoe shoes shorts silk skirt sleeve slipper sneaker sock socks stocking suit sweater tie tights tunic tuxedo uniform veil vest wool zip garment clothes fashion style wardrobe tailor sew stitch hem costume`,
+natureza:`bay beach boulder brook canyon cave cliff coast comet cosmos creek crater delta desert dune earth field fire flame galaxy geyser glacier globe gulf hill island jungle lagoon lake land lava marsh moon mound mount ocean peak planet plain pond prairie reef ridge river rock sand sea shore sky slope soil space spring star stream summit sun swamp tide valley volcano wave wild woods world dawn dusk sunset sunrise horizon orbit eclipse nature pebble mud dirt ember smoke crystal pearl quartz canyons oasis tundra savanna rainbow`,
+clima:`blizzard breeze chill climate cloud cloudy damp dew drizzle drought dry flood fog foggy frost gale gust hail haze heat humid ice icy mist monsoon rain rainy sleet snow snowy storm stormy sunny thaw thunder tornado tropical typhoon warm weather wet wind windy winter summer autumn season forecast freeze frozen hot muggy squall arctic polar degree degrees`,
+lugares:`abbey airport alley arena avenue bakery bank bar barn bazaar cabin cafe camp campus castle cellar chapel church cinema city college cottage country county court dock embassy estate factory farm forum gallery gym harbor hotel hut inn jail lab library lobby lodge mall manor market mill mine mosque motel museum office palace park pier plaza port prison pub ranch resort road room ruins salon school shop shrine square stadium station store street studio suburb theater town village villa zoo north south east west downtown nation state capital region border hostel kiosk venue pharmacy`,
+transporte:`airship auto barge bicycle bike boat bus cab canoe car cargo carriage cart coach cruise cycle engine ferry fleet freight glider jeep jet kayak limo lorry metro moped motor pedal plane raft rail railway ride rocket route sail sailboat scooter ship shuttle sled sledge subway taxi tractor trailer train tram transit truck van vessel voyage wagon yacht pilot driver steer brake gas fuel ticket travel trip journey tour runway highway lane traffic parking`,
+profissoes:`actor actress agent artist author baker banker barber bishop boxer broker butcher butler captain cashier chef chemist clerk cook courier dancer designer diver editor engineer farmer fireman florist guard guide hunter janitor jeweler judge lawyer maid manager mason mayor mechanic miner monk nanny officer painter pastor poet police porter potter priest ranger reporter sailor scholar sculptor senator sergeant sheriff singer soldier surgeon teacher trader tutor umpire vet waiter waitress welder writer clown cowboy knight maestro jockey`,
+pessoas:`adult baby bride buddy chap child citizen client crew crowd dude elder enemy fellow folk friend gang ghost giant girl guest guy hero heroine host human infant kid king lad lady leader lord maiden male man men neighbor nobody owner pal partner peasant people person pirate player prince princess queen rival roommate scout someone stranger student teen tenant tourist twin user victim villain visitor witch wizard woman women youth boy boss team mob duke duchess emperor monarch nomad orphan rookie shepherd sibling toddler veteran viking warrior widow`,
+familia:`aunt brother cousin dad daddy daughter family father granny grandma grandpa groom heir husband kin mom mommy mother nephew niece parent parents sister son spouse uncle wife wedding marriage divorce adopt fiance fiancee papa mama clan ancestor relative stepson siblings twins folks aunts moms dads uncles nieces cousins sisters stepdad stepmom godson`,
+emocoes:`anger angry anxiety awe bliss bored calm care cheer content crush desire dismay dread envy fear fond fury glad glee gloom grief guilt happy hate hope horror hurt jealous joy kind love lonely mad mercy mood nervous panic passion pity pride rage regret relief sad sadness scared shame shock shy sorrow spite sulk tears tender thrill upset worry yearn yearning smile laugh cry sigh hug kiss blush frown grin grumpy cheerful moody proud excited hopeful joyful anxious afraid emotion feeling feelings delight comfort enjoy adore`,
+qualidades:`able active alive awful bad bald basic big bold brave brief brisk broad busy cheap clean clear clever close crazy cruel cute deep dirty dull eager early easy empty evil exact fair fake false famous fancy fast fat fine firm flat free fresh full funny gentle good grand great handy hard harsh heavy high honest huge humble idle jolly keen large late lazy light little long loose loud low loyal lucky major mild minor modern narrow neat new nice noble noisy normal odd old open poor polite proper pure quick quiet rapid rare raw ready real rich rigid rough round royal rude safe same sharp short silly simple slow small smart smooth soft solid spare steep stiff still strange strict strong stupid sturdy sure swift tall thick thin tight tiny tough true ugly vague vast weak weird whole wide wise young`,
+acoes:`accept act add agree allow answer arrive ask beg begin believe bend bite blow borrow break bring build buy call carry catch change chase chew choose clap climb come count crawl create cross cut dance dig dive draw dream drive drop eat enter escape explain fall feed feel fight find finish fix fold follow forget forgive get give grab grow guess hang help hide hit hold hop hunt hurry jog join jump keep kick knock know learn leave lend lie lift listen live look lose make march meet melt move nod obey pack paint pass pay pick plan play point pour pray press pull push put quit race reach read relax rest return run rush say scream search see sell send share shout show shut sing sit skip sleep slide smell speak spend spin stand start stay steal stop study swim take talk teach tell think throw touch try turn wait wake walk want wash wear win wish work write yell`,
+tempo:`age ages ago annual april august before birthday calendar century daily day days decade december era eve evening ever february friday future hour hours instant january july june later may midnight minute moment monday month monthly morning never night noon now november october often past period present recent second seconds soon sunday thursday today tomorrow tonight tuesday week weekend weekly year yearly saturday schedule deadline delay timer always seldom while until since again lately daytime holiday`,
+numeros:`one acre billion dozen double eight eighty eleven fifteen fifty five forty four gallon gram half hundred inch kilo liter meter mile million minus nine ninety number ounce pair percent pint plus pound quart quarter seven seventy six sixty sum ten third thirty three thousand total triple twelve twenty two zero yards metric digit digits figure math sums fraction decimal measure height length width weight volume radius area ratio tally single dual trio quartet trillion`,
+escola:`algebra atlas class chalk course diploma essay exam grade grammar homework lesson lecture locker notebook quiz recess report semester subject syllabus term test textbook thesis faculty geometry history physics biology science reading spelling alphabet studies exams tests lessons graduate academy books notes dorm classes teachers pupils`,
+trabalho:`agenda briefing budget business career company contract deal duty email employ employee employer file hire hired intern job labor meeting memo overtime payroll project raise resume retire salary shift staff strike task trade union vacancy wage worker workshop agency chore errand goal goals plans profit sales retail brand brands product service output`,
+dinheiro:`account asset bargain bill bills bond bonus buck cash cent cents charge check coins cost credit debit debt deposit dime dollar dollars earn euro expense fee fortune fund funds grant income interest invest loan loot luxury money mortgage nickel owe payment penny pension price rent riches refund save saving savings stock tax taxes tip treasure value wealth worth bet jackpot lottery ransom tariff receipt invoice discount auction`,
+arte:`album art ballad ballet band banjo bass canvas carol cello chord chorus circus comedy concert drama drum drums easel fable fiction film flute guitar harp hymn jazz lyric lyrics magic melody mime movie mural music musical myth novel opera painting piano poem poetry portrait pottery prose rhyme rhythm saga scene sketch song sonnet stage statue story tale tango tempo theme trumpet tune verse violin waltz poster cartoon anime comic comics legend fairy dragon magician puppet encore applause audience festival pop rap blues`,
+esportes:`archery athlete baseball bowling boxing chess cycling darts defeat derby dribble fencing final foul game games golf hockey hurdle inning judo karate league olympic pitch puck racket rally referee relay rugby score skate ski skiing soccer sport sports sprint squad surf tennis volley winner yoga wrestle tackle champion marathon jogging surfing diving rowing sailing climbing runner skater skier pinball bingo poker cards domino puzzle riddle trivia toss hoop slam dunk serve spike`,
+comunicacao:`accent address alert article banner blog caption channel chat code comment debate dialog emoji gossip greeting headline hello hint idiom inbox journal language letter letters link mail media message motto name news note notice page phrase post quote reply rumor sentence signal slogan speech spell telegram text title tweet voice whisper word words writing french english spanish german italian chinese latin greek dutch chatter mention notify survey summary comma question remark`,
+religiao:`altar amen angel angels bible blessed bless chant creed deity demon devil divine faith god gods goddess grace halo heaven hell holy idol karma mass miracle nun pagan pope prayer preach prophet psalm rabbi ritual sacred saint sermon sin soul spirit worship zen easter pilgrim psalms gospel genesis eden paradise saints spirits blessing`,
+justica:`accuse alibi appeal arrest bail ballot bandit burglar case cheat clue convict cop crime crook culprit decree defend elect fraud guilty heist inmate jury justice law lawful laws lawsuit legal liar murder oath outlaw parole penalty proof rights robber robbery rule rules scam senate smuggle spy suspect testify theft thief treaty trial verdict vote voter warrant witness ban banned crimes fugitive hostage kidnap mafia gangster thug vandal congress council govern policy reform treason`,
+ciencia:`acid atom atoms carbon chemical circuit clone data dna electron element energy enzyme formula fossil fusion gene genes gravity helium hydrogen laser logic matter metal method micro neuron neutron nitrogen nuclear oxygen particle plasma proton quantum radar radium robot solar sonar species theory thermal toxic vapor velocity voltage watt zinc copper sodium cobalt uranium lithium argon software hardware computer network pixel binary byte bytes chip research genetics atomic`,
+gramatica:`about above across after against along also although among and another any anybody anyone anything are around because been behind below beneath beside besides between beyond both but can could did does down during each either else enough even every everyone except few for from had has have hence her here hers herself him himself his how however inside into its itself just less like many might more most much must myself near neither none nor not nothing off once only onto other others ought our ours out outside over own per perhaps quite rather shall she should some such than that the their them then there these they this those though through thus too toward under unless upon very was were what when where whether which who whom whose why will with within without would yet you your yours yourself`,
+abstrato:`ability access action advice aim aspect balance basis belief bias brink cause chance chaos choice concept courage danger destiny detail doubt effect effort end error essence event evidence fact fame fate fault favor force freedom habit harm idea ideal image impact issue judgment kindness liberty life limit loss luck manner meaning memory mind mission mistake mystery need notion order origin pace peace plot power praise problem process progress purpose quest reason risk role secret sense skill solution source status success talent thought trend trick trust truth twist unity victory virtue vision wisdom wonder`,
+};
+
 /* normaliza: remove acentos, cedilha e maiúsculas */
 const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 
@@ -60,7 +120,7 @@ const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(
 const DICT = {};
 for(let n=3;n<=8;n++){
   const set = new Map();
-  RAW[n].split(/\s+/).forEach(w=>{
+  if(LANG==='pt') RAW[n].split(/\s+/).forEach(w=>{
     const k = norm(w);
     if(k.length === n && /^[a-z]+$/.test(k)) set.set(k, w.toLowerCase());
   });
@@ -71,15 +131,19 @@ for(let n=3;n<=8;n++){
 const BASE_COUNT = {};
 for(let n=3;n<=8;n++) BASE_COUNT[n] = DICT[n].keys.length;
 /* palavras do EXTRA que ainda não estão no dicionário, já com o grupo */
+// em inglês todas as palavras vêm de EN_WORDS, pelo mesmo caminho do EXTRA
+const EXTRA_SRC = LANG==='en' ? EN_WORDS : EXTRA;
 const extraGroup = {};
-for(const cat in EXTRA){
-  EXTRA[cat].split(/\s+/).forEach(w=>{
+for(const cat in EXTRA_SRC){
+  EXTRA_SRC[cat].split(/\s+/).forEach(w=>{
     const k = norm(w), d = DICT[k.length];
     if(!d || !/^[a-z]+$/.test(k) || d.words.has(k)) return;
     d.words.set(k, w.toLowerCase()); d.keys.push(k);
     extraGroup[k] = cat;
   });
 }
+// em inglês não existe "dicionário original": tudo conta como base (diário, dueto/quarteto)
+if(LANG==='en') for(let n=3;n<=8;n++) BASE_COUNT[n] = DICT[n].keys.length;
 
 /* =========================================================
    GRUPOS TEMÁTICOS — usados na dica manual "palavra relacionada".
@@ -128,7 +192,18 @@ abstrato:`dom fim mal paz base caso erro fato fila lado meio meta modo tema tipo
 };
 
 /* nome de cada grupo como aparece na dica (as chaves acima são sem acento) */
-const GROUP_LABEL = {
+const GROUP_LABEL = LANG==='en' ? {
+  animais:'animals', plantas:'plants', frutas:'fruits', comida:'food',
+  bebidas:'drinks', cores:'colors', corpo:'body parts', saude:'health',
+  casa:'around the house', construcao:'construction', objetos:'objects',
+  roupas:'clothing', natureza:'nature', clima:'weather', lugares:'places',
+  transporte:'transportation', profissoes:'jobs', pessoas:'people',
+  familia:'family', emocoes:'emotions', qualidades:'qualities',
+  acoes:'actions', tempo:'time', numeros:'numbers and measures', escola:'school',
+  trabalho:'work', dinheiro:'money', arte:'arts', esportes:'sports and games',
+  comunicacao:'communication', religiao:'religion', justica:'law and justice',
+  ciencia:'science', gramatica:'grammar words', abstrato:'abstract ideas'
+} : {
   animais:'animais', plantas:'plantas', frutas:'frutas', comida:'comida',
   bebidas:'bebidas', cores:'cores', corpo:'partes do corpo', saude:'saúde',
   casa:'coisas de casa', construcao:'construção', objetos:'objetos',
@@ -144,7 +219,8 @@ const GROUP_LABEL = {
 /* categoria → lista de palavras, e o mapa reverso usado na dica */
 const GROUPS = {};
 const wordGroup = {};
-for(const cat in GROUPS_RAW){
+for(const cat in GROUP_LABEL) GROUPS[cat] = [];
+if(LANG==='pt') for(const cat in GROUPS_RAW){
   GROUPS[cat] = GROUPS_RAW[cat].trim().split(/\s+/);
   GROUPS[cat].forEach(w=>{ if(!wordGroup[w]) wordGroup[w] = cat; });
 }
@@ -241,33 +317,33 @@ function themePool(len, theme){
    ou a resposta foge — exigir pistas anteriores não faz sentido)
    ========================================================= */
 const VARIANTS = {
-  normal: {icon:'♾️', name:'Normal',       desc:'O jogo de sempre, com as letras, tentativas e tema dos Ajustes.'},
-  duo:    {icon:'🧩', name:'Dueto',        boards:2, tries:len=>len+2, noHard:true,
-           desc:'Duas palavras ao mesmo tempo: cada palpite vale para as duas. Tentativas = letras + 2. Dica de grupo e dicas no fim valem para cada palavra.'},
-  quad:   {icon:'🀄', name:'Quarteto',     boards:4, tries:len=>len+6, noHard:true,
-           desc:'Quatro palavras de uma vez! Cada palpite vale para todas. Tentativas = letras + 6. Dica de grupo e dicas no fim valem para cada palavra.'},
-  cheat:  {icon:'😈', name:'Trapaceiro',   tries:()=>7, noHard:true,
-           desc:'O jogo não escolhe a palavra: a cada palpite ele foge, ficando com o maior grupo de palavras possíveis. Encurrale-o em 7 tentativas. As dicas também o prendem: depois delas, ele só foge pra palavras que batem.'},
-  chain:  {icon:'⛓️', name:'Corrente',
-           desc:'A palavra que você acertou vira o 1º palpite da próxima. Quantos elos seguidos você consegue?'},
-  sudden: {icon:'💀', name:'Morte súbita', tries:()=>3,
-           desc:'Só 3 tentativas. Acertar na 1ª vale 500 pontos, na 2ª 250, na 3ª 100. O primeiro erro acaba a rodada.'},
-  pass:   {icon:'👥', name:'Passa-e-joga',
-           desc:'Duas pessoas no mesmo aparelho revezam os palpites no mesmo tabuleiro. Ganha quem acertar!'},
-  liar:   {icon:'🤥', name:'Mentiroso',    tries:()=>10, noHard:true, noGhost:true,
-           desc:'Ele mente um palpite sim, um não: no 1º, 3º, 5º... uma casinha mostra a cor errada; no 2º, 4º, 6º... tudo é verdade. 10 tentativas, e no fim as mentiras são reveladas.'},
-  count:  {icon:'🔢', name:'Contagem',     tries:len=>len+5, noHard:true, noGhost:true, noKeys:true,
-           desc:'As casinhas não mostram cor: ao lado de cada palpite aparece só quantas letras estão no lugar certo (🟩) e quantas estão na palavra em outro lugar (🟦). Tentativas = letras + 5.'},
-  memory: {icon:'🧠', name:'Memória',      noHard:true, noGhost:true, noKeys:true,
-           desc:'As cores só ficam visíveis no último palpite: as linhas anteriores apagam e o teclado não ajuda. Tudo fica por conta da sua memória.'},
-  ladder: {icon:'🪜', name:'Escada',       tries:()=>6, len:true,
-           desc:'Comece com 3 letras e suba um degrau a cada acerto: 4, 5, 6, 7 até 8 letras. Errou, volta pro começo. Até onde você chega?'},
-  anagram:{icon:'🔀', name:'Anagrama',     tries:len=>Math.max(3, len-1), noHard:true,
-           desc:'Você já começa sabendo as letras, embaralhadas. Falta descobrir a ordem certa, com menos tentativas (letras − 1).'},
+  normal: {icon:'♾️', name:'Normal',       desc:L('O jogo de sempre, com as letras, tentativas e tema dos Ajustes.', 'The usual game, with the letters, tries and theme from Settings.')},
+  duo:    {icon:'🧩', name:L('Dueto', 'Duet'),        boards:2, tries:len=>len+2, noHard:true,
+           desc:L('Duas palavras ao mesmo tempo: cada palpite vale para as duas. Tentativas = letras + 2. Dica de grupo e dicas no fim valem para cada palavra.', 'Two words at once: every guess counts for both. Tries = letters + 2. The group hint and end hints work for each word.')},
+  quad:   {icon:'🀄', name:L('Quarteto', 'Quartet'),     boards:4, tries:len=>len+6, noHard:true,
+           desc:L('Quatro palavras de uma vez! Cada palpite vale para todas. Tentativas = letras + 6. Dica de grupo e dicas no fim valem para cada palavra.', 'Four words at once! Every guess counts for all of them. Tries = letters + 6. The group hint and end hints work for each word.')},
+  cheat:  {icon:'😈', name:L('Trapaceiro', 'Cheater'),   tries:()=>7, noHard:true,
+           desc:L('O jogo não escolhe a palavra: a cada palpite ele foge, ficando com o maior grupo de palavras possíveis. Encurrale-o em 7 tentativas. As dicas também o prendem: depois delas, ele só foge pra palavras que batem.', "The game never commits to a word: after each guess it dodges, keeping the largest group of possible words. Corner it in 7 tries. Hints trap it too: after them, it can only dodge to words that match.")},
+  chain:  {icon:'⛓️', name:L('Corrente', 'Chain'),
+           desc:L('A palavra que você acertou vira o 1º palpite da próxima. Quantos elos seguidos você consegue?', 'The word you guessed becomes the 1st guess of the next one. How many links in a row can you make?')},
+  sudden: {icon:'💀', name:L('Morte súbita', 'Sudden death'), tries:()=>3,
+           desc:L('Só 3 tentativas. Acertar na 1ª vale 500 pontos, na 2ª 250, na 3ª 100. O primeiro erro acaba a rodada.', 'Only 3 tries. Getting it on the 1st is worth 500 points, on the 2nd 250, on the 3rd 100. The first miss ends the round.')},
+  pass:   {icon:'👥', name:L('Passa-e-joga', 'Pass & play'),
+           desc:L('Duas pessoas no mesmo aparelho revezam os palpites no mesmo tabuleiro. Ganha quem acertar!', 'Two people on the same device take turns guessing on the same board. Whoever gets it wins!')},
+  liar:   {icon:'🤥', name:L('Mentiroso', 'Liar'),    tries:()=>10, noHard:true, noGhost:true,
+           desc:L('Ele mente um palpite sim, um não: no 1º, 3º, 5º... uma casinha mostra a cor errada; no 2º, 4º, 6º... tudo é verdade. 10 tentativas, e no fim as mentiras são reveladas.', 'It lies every other guess: on the 1st, 3rd, 5th... one tile shows the wrong color; on the 2nd, 4th, 6th... everything is true. 10 tries, and the lies are revealed at the end.')},
+  count:  {icon:'🔢', name:L('Contagem', 'Count'),     tries:len=>len+5, noHard:true, noGhost:true, noKeys:true,
+           desc:L('As casinhas não mostram cor: ao lado de cada palpite aparece só quantas letras estão no lugar certo (🟩) e quantas estão na palavra em outro lugar (🟦). Tentativas = letras + 5.', 'The tiles show no color: next to each guess you only see how many letters are in the right place (🟩) and how many are in the word somewhere else (🟦). Tries = letters + 5.')},
+  memory: {icon:'🧠', name:L('Memória', 'Memory'),      noHard:true, noGhost:true, noKeys:true,
+           desc:L('As cores só ficam visíveis no último palpite: as linhas anteriores apagam e o teclado não ajuda. Tudo fica por conta da sua memória.', "Colors only show on your latest guess: earlier rows fade out and the keyboard doesn't help. It's all up to your memory.")},
+  ladder: {icon:'🪜', name:L('Escada', 'Ladder'),       tries:()=>6, len:true,
+           desc:L('Comece com 3 letras e suba um degrau a cada acerto: 4, 5, 6, 7 até 8 letras. Errou, volta pro começo. Até onde você chega?', 'Start with 3 letters and climb a step with each win: 4, 5, 6, 7 up to 8 letters. Miss, and you go back to the start. How high can you get?')},
+  anagram:{icon:'🔀', name:L('Anagrama', 'Anagram'),     tries:len=>Math.max(3, len-1), noHard:true,
+           desc:L('Você já começa sabendo as letras, embaralhadas. Falta descobrir a ordem certa, com menos tentativas (letras − 1).', "You start out knowing the letters, scrambled. All that's left is the right order, with fewer tries (letters − 1).")},
 };
 /* escada: o degrau (acertos seguidos) define o tamanho, de 3 a 8 letras */
 const ladderLen = count => 3 + count % 6;
-const PLAYERS = [{icon:'🟠', name:'Jogador 1'}, {icon:'🟣', name:'Jogador 2'}];
+const PLAYERS = [{icon:'🟠', name:L('Jogador 1','Player 1')}, {icon:'🟣', name:L('Jogador 2','Player 2')}];
 const SUDDEN_PTS = [500, 250, 100];
 function variant(){ return state.mode==='free' ? state.variant : 'normal'; }
 function noAssist(){ return !!VARIANTS[variant()].noAssist; }
@@ -396,9 +472,9 @@ function updatePlayActionBtns(){
   if(bNew){
     // no diário o botão vira "arquivo" (jogar dias anteriores)
     bNew.disabled = state.duel;
-    bNew.textContent = state.mode==='blitz' ? `⏭️ Pular (−${BLITZ_SKIP}s)` : state.mode==='daily' ? '📚 Arquivo' : '🔄 Novo jogo';
-    bNew.title = state.mode==='daily' ? 'Jogue as palavras do dia que você perdeu'
-      : state.mode==='blitz' ? 'Pula esta palavra (custa tempo)' : 'Abandona esta partida e sorteia outra palavra';
+    bNew.textContent = state.mode==='blitz' ? L(`⏭️ Pular (−${BLITZ_SKIP}s)`, `⏭️ Skip (−${BLITZ_SKIP}s)`) : state.mode==='daily' ? L('📚 Arquivo', '📚 Archive') : L('🔄 Novo jogo', '🔄 New game');
+    bNew.title = state.mode==='daily' ? L('Jogue as palavras do dia que você perdeu', 'Play the daily words you missed')
+      : state.mode==='blitz' ? L('Pula esta palavra (custa tempo)', 'Skip this word (costs time)') : L('Abandona esta partida e sorteia outra palavra', 'Give up this game and draw another word');
   }
   const bChallenge = document.getElementById('btnChallenge');
   if(bChallenge) bChallenge.disabled = state.mode!=='free' || state.duel || state.variant!=='normal';
@@ -413,16 +489,16 @@ function startFresh(){
   // abandonar no meio quebra a corrente / acaba a rodada da morte súbita
   const r = state.run;
   if(r && state.status==='playing' && r.count>0){
-    if(r.kind==='chain'){ say(`⛓️ A corrente quebrou com ${r.count} ${r.count===1?'elo':'elos'}`, 2200); r.count = 0; r.prev = null; }
-    if(r.kind==='sudden'){ say(`💀 Rodada encerrada: ${r.pts} pts`, 2200); r.count = 0; r.pts = 0; }
-    if(r.kind==='ladder'){ say(`🪜 Desceu da escada no degrau ${r.count}`, 2200); r.count = 0; }
+    if(r.kind==='chain'){ say(L(`⛓️ A corrente quebrou com ${r.count} ${r.count===1?'elo':'elos'}`, `⛓️ The chain broke at ${r.count} ${r.count===1?'link':'links'}`), 2200); r.count = 0; r.prev = null; }
+    if(r.kind==='sudden'){ say(L(`💀 Rodada encerrada: ${r.pts} pts`, `💀 Round over: ${r.pts} pts`), 2200); r.count = 0; r.pts = 0; }
+    if(r.kind==='ladder'){ say(L(`🪜 Desceu da escada no degrau ${r.count}`, `🪜 You stepped off the ladder at step ${r.count}`), 2200); r.count = 0; }
   }
   newGame();
 }
 function buildThemeSelect(){
   const sel = document.getElementById('selTheme');
-  sel.innerHTML = '<option value="">Todos os temas</option>';
-  Object.keys(GROUP_LABEL).sort((a,b)=>GROUP_LABEL[a].localeCompare(GROUP_LABEL[b],'pt-BR')).forEach(cat=>{
+  sel.innerHTML = `<option value="">${L('Todos os temas','All themes')}</option>`;
+  Object.keys(GROUP_LABEL).sort((a,b)=>GROUP_LABEL[a].localeCompare(GROUP_LABEL[b], LOCALE)).forEach(cat=>{
     const opt=document.createElement('option');
     opt.value=cat; opt.textContent=GROUP_LABEL[cat];
     // no relâmpago (sempre 5 letras) só entram temas com palavra suficiente
@@ -498,7 +574,7 @@ function newGame(forcedKey){
       list = list.filter(k=>k!==prev);
       if(!list.length){
         list = DICT[state.len].keys.filter(k=>k!==prev);
-        say('O tema acabou nesse tamanho: o próximo elo vem de fora dele', 2200);
+        say(L('O tema acabou nesse tamanho: o próximo elo vem de fora dele', 'This theme ran out at this length: the next link comes from outside it'), 2200);
       }
     }
     key = pick(list);
@@ -558,7 +634,7 @@ function newGame(forcedKey){
       submit();
     } else {
       state.run.prev = null; state.run.count = 0;
-      say('Tamanho mudou: a corrente recomeça');
+      say(L('Tamanho mudou: a corrente recomeça', 'Length changed: the chain starts over'));
       renderVarBar();
     }
   }
@@ -741,7 +817,7 @@ function maybeHint(){
       cheatKeep(k=>k.includes(c));
       state.hintKey = c;
       paintKeyboard();
-      showHint(`Faltam <b>2 tentativas</b>. A palavra tem a letra <b>${c.toUpperCase()}</b>.`);
+      showHint(L(`Faltam <b>2 tentativas</b>. A palavra tem a letra <b>${c.toUpperCase()}</b>.`, `<b>2 tries</b> left. The word has the letter <b>${c.toUpperCase()}</b>.`));
       return;
     }
   }
@@ -756,7 +832,7 @@ function revelarPosicao(nivel){
   if(!VARIANTS[variant()].noGhost) state.rows.forEach(r=>r.res.forEach((v,i)=>{ if(v==='correct') resolvidas.add(i); }));
   const livres = [...Array(state.len).keys()].filter(i=>!resolvidas.has(i));
   if(!livres.length){
-    showHint('Você já tem todas as letras no lugar certo. É só confirmar.');
+    showHint(L('Você já tem todas as letras no lugar certo. É só confirmar.', 'You already have every letter in the right place. Just confirm it.'));
     return;
   }
   const idx = livres[Math.floor(Math.random()*livres.length)];
@@ -765,8 +841,8 @@ function revelarPosicao(nivel){
   const letra = state.answerRaw[idx].toUpperCase();
   state.ghosts[idx] = letra;
   renderCurrent();
-  const abertura = nivel===2 ? 'Última chance.' : 'Faltam 2 tentativas.';
-  showHint(`${abertura} A <b>${idx+1}ª letra</b> é <b>${letra}</b> — já deixei marcada no tabuleiro.`);
+  const abertura = nivel===2 ? L('Última chance.','Last chance.') : L('Faltam 2 tentativas.','2 tries left.');
+  showHint(L(`${abertura} A <b>${idx+1}ª letra</b> é <b>${letra}</b> — já deixei marcada no tabuleiro.`, `${abertura} The <b>${ordinal(idx+1)} letter</b> is <b>${letra}</b> — it's marked on the board.`));
 }
 
 /* dueto/quarteto: em vez de falar de uma palavra só, marca no tabuleiro uma
@@ -786,9 +862,9 @@ function hintMulti(nivel){
     marcou++;
   });
   renderCurrent();
-  const abertura = nivel===2 ? 'Última chance.' : 'Faltam 2 tentativas.';
-  showHint(marcou ? `${abertura} Marquei no tabuleiro uma letra certa de cada palavra que falta.`
-    : 'Você já tem todas as letras no lugar certo. É só confirmar.');
+  const abertura = nivel===2 ? L('Última chance.','Last chance.') : L('Faltam 2 tentativas.','2 tries left.');
+  showHint(marcou ? L(`${abertura} Marquei no tabuleiro uma letra certa de cada palavra que falta.`, `${abertura} I marked one correct letter of each remaining word on the board.`)
+    : L('Você já tem todas as letras no lugar certo. É só confirmar.', 'You already have every letter in the right place. Just confirm it.'));
 }
 
 /* trapaceiro: uma dica revelada prende o jogo — ele só pode continuar fugindo
@@ -820,7 +896,7 @@ function useGroupHint(){
   // dueto/quarteto: o grupo de cada palavra aparece em cima do tabuleiro dela
   if(state.multi){
     state.multi.keys.forEach((k,b)=>{ board.children[b].dataset.group = GROUP_LABEL[wordGroup[k]] || '?'; });
-    showHint('O grupo de cada palavra está escrito em cima do tabuleiro dela.');
+    showHint(L('O grupo de cada palavra está escrito em cima do tabuleiro dela.', "Each word's group is written above its board."));
     return;
   }
 
@@ -844,7 +920,7 @@ function useGroupHint(){
   if(cat && opcoes.length){
     const outra = opcoes[Math.floor(Math.random()*opcoes.length)];
     const nome = GROUP_LABEL[cat] || cat;
-    showHint(`A palavra secreta é do grupo <b>${nome}</b> — como <b>${rawForm(outra).toUpperCase()}</b>.`);
+    showHint(L(`A palavra secreta é do grupo <b>${nome}</b> — como <b>${rawForm(outra).toUpperCase()}</b>.`, `The secret word is in the group <b>${nome}</b> — like <b>${rawForm(outra).toUpperCase()}</b>.`));
     return;
   }
 
@@ -853,11 +929,11 @@ function useGroupHint(){
   const reveladas = new Set(Object.keys(state.letterState).filter(k=>state.letterState[k]!=='absent'));
   const faltando = [...new Set(state.answer.split(''))].filter(c=>!reveladas.has(c));
   if(!faltando.length){
-    showHint('Você já conhece todas as letras da palavra secreta.');
+    showHint(L('Você já conhece todas as letras da palavra secreta.', 'You already know every letter of the secret word.'));
     return;
   }
   const c = faltando[Math.floor(Math.random()*faltando.length)];
-  showHint(`A palavra secreta tem a letra <b>${c.toUpperCase()}</b> (a posição fica por sua conta).`);
+  showHint(L(`A palavra secreta tem a letra <b>${c.toUpperCase()}</b> (a posição fica por sua conta).`, `The secret word has the letter <b>${c.toUpperCase()}</b> (finding its position is up to you).`));
 }
 
 /* =========================================================
@@ -994,18 +1070,18 @@ function hardModeError(guess){
   for(const past of state.rows){
     for(let i=0;i<state.len;i++){
       if(past.res[i]==='correct' && guess[i]!==past.guess[i])
-        return `A ${i+1}ª letra precisa ser ${past.guess[i].toUpperCase()}`;
+        return L(`A ${i+1}ª letra precisa ser ${past.guess[i].toUpperCase()}`, `The ${ordinal(i+1)} letter must be ${past.guess[i].toUpperCase()}`);
     }
     for(let i=0;i<state.len;i++){
       if(past.res[i]==='present' && !guess.includes(past.guess[i]))
-        return `O palpite precisa conter ${past.guess[i].toUpperCase()}`;
+        return L(`O palpite precisa conter ${past.guess[i].toUpperCase()}`, `Your guess must contain ${past.guess[i].toUpperCase()}`);
     }
   }
   return null;
 }
 
 function submit(){
-  if(state.cur.includes('')) return reject('Faltam letras');
+  if(state.cur.includes('')) return reject(L('Faltam letras', 'Not enough letters'));
   const g = state.cur.join('');
   // qualquer combinação de letras é aceita como palpite, sem checar o dicionário
   if(hardOn()){
@@ -1222,17 +1298,22 @@ function say(msg, ms=1600){
 const pickOne = list => list[Math.floor(Math.random()*list.length)];
 function winMessage(){
   const r = state.row, t = state.tries;
-  if(r===1) return pickOne(['Na primeira?! Você colou 👀','Telepatia pura 🔮','Isso foi sorte ou talento? 🎯']);
-  if(r===t) return pickOne(['Ufa, no último suspiro! 😮‍💨','Por um fio! 🧵','Coração na boca, mas foi! 💓']);
-  if(r===2) return pickOne(['Faro de detetive 🕵️','Rápido no gatilho! ⚡','Que olho! 👁️']);
-  if(stats.streak>=5 && stats.streak%5===0) return `${stats.streak} seguidas! Tá on fire 🔥`;
-  return pickOne(['Muito bem!','Mandou bem 👏','Boa! 💪','Excelente!','Arrasou ✨']);
+  if(r===1) return pickOne(L(['Na primeira?! Você colou 👀','Telepatia pura 🔮','Isso foi sorte ou talento? 🎯'],
+                            ['First try?! Did you peek? 👀','Pure telepathy 🔮','Was that luck or talent? 🎯']));
+  if(r===t) return pickOne(L(['Ufa, no último suspiro! 😮‍💨','Por um fio! 🧵','Coração na boca, mas foi! 💓'],
+                            ['Phew, with your last breath! 😮‍💨','By a thread! 🧵','Heart in your mouth, but you made it! 💓']));
+  if(r===2) return pickOne(L(['Faro de detetive 🕵️','Rápido no gatilho! ⚡','Que olho! 👁️'],
+                            ['Detective instincts 🕵️','Quick on the draw! ⚡','What an eye! 👁️']));
+  if(stats.streak>=5 && stats.streak%5===0) return L(`${stats.streak} seguidas! Tá on fire 🔥`, `${stats.streak} in a row! You're on fire 🔥`);
+  return pickOne(L(['Muito bem!','Mandou bem 👏','Boa! 💪','Excelente!','Arrasou ✨'],
+                   ['Well done!','Nailed it 👏','Nice! 💪','Excellent!','Brilliant ✨']));
 }
 function loseMessage(){
   // faltou uma letra só no último palpite?
   const last = state.rows[state.rows.length-1];
-  if(last?.res && last.res.filter(v=>v!=='correct').length===1) return 'Faltou só uma letrinha! 😩';
-  return pickOne(['Fica para a próxima','Essa era cabeluda 😬','O dicionário venceu dessa vez 📖','Respira e tenta outra 🌬️']);
+  if(last?.res && last.res.filter(v=>v!=='correct').length===1) return L('Faltou só uma letrinha! 😩','Just one letter short! 😩');
+  return pickOne(L(['Fica para a próxima','Essa era cabeluda 😬','O dicionário venceu dessa vez 📖','Respira e tenta outra 🌬️'],
+                   ['Better luck next time','That one was tough 😬','The dictionary won this round 📖','Take a breath and try another 🌬️']));
 }
 /* respostas da partida (várias no dueto/quarteto) */
 function answersOf(){ return state.multi ? state.multi.keys : [state.answer]; }
@@ -1282,20 +1363,20 @@ function finish(won){
   if(state.multi){
     const m = state.multi, n = m.keys.length;
     word = m.raws.map((w,b)=>`<span class="${m.solved[b]?'ok':'miss'}">${w}</span>`).join(' ');
-    top = won ? winMessage() : 'As palavras eram';
-    bottom = won ? `Resolveu as ${n} em ${state.row} de ${state.tries}` : `Resolveu ${m.solved.filter(Boolean).length} de ${n} · ${loseMessage()}`;
+    top = won ? winMessage() : L('As palavras eram', 'The words were');
+    bottom = won ? L(`Resolveu as ${n} em ${state.row} de ${state.tries}`, `Solved all ${n} in ${state.row} of ${state.tries}`) : L(`Resolveu ${m.solved.filter(Boolean).length} de ${n} · ${loseMessage()}`, `Solved ${m.solved.filter(Boolean).length} of ${n} · ${loseMessage()}`);
   } else if(v==='cheat'){
-    top = won ? 'Você encurralou o trapaceiro! 😈' : 'O trapaceiro escapou com';
-    bottom = won ? `Em ${state.row} de ${state.tries} tentativas` : `Ainda sobravam ${state.cheat.cands.length} palavras possíveis 🤡`;
+    top = won ? L('Você encurralou o trapaceiro! 😈', 'You cornered the cheater! 😈') : L('O trapaceiro escapou com', 'The cheater got away with');
+    bottom = won ? L(`Em ${state.row} de ${state.tries} tentativas`, `In ${state.row} of ${state.tries} tries`) : L(`Ainda sobravam ${state.cheat.cands.length} palavras possíveis 🤡`, `${state.cheat.cands.length} possible words were still left 🤡`);
   } else if(v==='liar'){
-    top = won ? 'Ninguém te engana! 🕵️' : 'A mentira venceu. A palavra era';
-    bottom = (won ? `Acertou em ${state.row} de ${state.tries}` : loseMessage()) + '<br>🤥 As casinhas marcadas eram as mentiras';
+    top = won ? L('Ninguém te engana! 🕵️', 'Nobody fools you! 🕵️') : L('A mentira venceu. A palavra era', 'The lies won. The word was');
+    bottom = (won ? L(`Acertou em ${state.row} de ${state.tries}`, `Got it in ${state.row} of ${state.tries}`) : loseMessage()) + L('<br>🤥 As casinhas marcadas eram as mentiras', '<br>🤥 The marked tiles were the lies');
   } else if(p){
-    top = won ? `${p.icon} ${p.name} acertou!` : 'Ninguém acertou! A palavra era';
-    bottom = `Placar: ${PLAYERS[0].icon} ${state.run.score[0]} × ${state.run.score[1]} ${PLAYERS[1].icon}`;
+    top = won ? L(`${p.icon} ${p.name} acertou!`, `${p.icon} ${p.name} got it!`) : L('Ninguém acertou! A palavra era', 'Nobody got it! The word was');
+    bottom = L(`Placar: ${PLAYERS[0].icon} ${state.run.score[0]} × ${state.run.score[1]} ${PLAYERS[1].icon}`, `Score: ${PLAYERS[0].icon} ${state.run.score[0]} × ${state.run.score[1]} ${PLAYERS[1].icon}`);
   } else {
-    top = won ? winMessage() : 'A palavra era';
-    bottom = won ? `Acertou em ${state.row} de ${state.tries}` : loseMessage();
+    top = won ? winMessage() : L('A palavra era', 'The word was');
+    bottom = won ? L(`Acertou em ${state.row} de ${state.tries}`, `Got it in ${state.row} of ${state.tries}`) : loseMessage();
   }
   if(runInfo.text) bottom += `<br>${runInfo.text}`;
   const archive = state.mode==='daily' && state.dailyDate!==todayStr();
@@ -1303,7 +1384,7 @@ function finish(won){
     word, again: state.mode!=='daily', againLabel: runInfo.again,
     trail: state.trail, countdown: state.mode==='daily' && !archive,
     words: answersOf(), xp,
-    extra: archive ? '<button class="btn ghost" id="toToday">📅 Voltar para hoje</button>' : ''
+    extra: archive ? L('<button class="btn ghost" id="toToday">📅 Voltar para hoje</button>', '<button class="btn ghost" id="toToday">📅 Back to today</button>') : ''
   });
   if(won) confetti();
 }
@@ -1315,7 +1396,7 @@ function revealVariantSecrets(){
   state.rows.forEach((r,ri)=>{
     if(r.lie===undefined) return;
     const tile = board.children[ri]?.children[r.lie];
-    if(tile){ tile.classList.add('lied'); tile.title = `Mentira: a cor certa era ${{correct:'verde',present:'azul',absent:'cinza'}[r.truth[r.lie]]}`; }
+    if(tile){ tile.classList.add('lied'); tile.title = L(`Mentira: a cor certa era ${{correct:'verde',present:'azul',absent:'cinza'}[r.truth[r.lie]]}`, `Lie: the real color was ${{correct:'green',present:'blue',absent:'gray'}[r.truth[r.lie]]}`); }
   });
 }
 
@@ -1339,12 +1420,12 @@ function updateRun(won){
     if(won){
       r.count++; count = r.count; r.prev = state.answer;
       if(r.count>runs.chain){ runs.chain = r.count; saveRuns(); }
-      text = `⛓️ Corrente de ${r.count} ${r.count===1?'elo':'elos'}! A próxima começa com <b>${state.answerRaw.toUpperCase()}</b>`;
-      again = 'Próximo elo ⛓️';
+      text = L(`⛓️ Corrente de ${r.count} ${r.count===1?'elo':'elos'}! A próxima começa com <b>${state.answerRaw.toUpperCase()}</b>`, `⛓️ Chain of ${r.count} ${r.count===1?'link':'links'}! The next one starts with <b>${state.answerRaw.toUpperCase()}</b>`);
+      again = L('Próximo elo ⛓️', 'Next link ⛓️');
     } else {
-      text = r.count ? `⛓️ A corrente quebrou com ${r.count} ${r.count===1?'elo':'elos'} (recorde: ${runs.chain})` : '';
+      text = r.count ? L(`⛓️ A corrente quebrou com ${r.count} ${r.count===1?'elo':'elos'} (recorde: ${runs.chain})`, `⛓️ The chain broke at ${r.count} ${r.count===1?'link':'links'} (record: ${runs.chain})`) : '';
       r.count = 0; r.prev = null;
-      again = 'Nova corrente';
+      again = L('Nova corrente', 'New chain');
     }
   } else if(r.kind==='sudden'){
     if(won){
@@ -1352,32 +1433,32 @@ function updateRun(won){
       r.count++; r.pts += pts; count = r.count;
       // grava o recorde já no acerto: abandonar a rodada no meio não pode perdê-lo
       if(r.pts>runs.sudden){ runs.sudden = r.pts; runs.suddenWords = r.count; r.record = true; saveRuns(); }
-      text = `💀 +${pts} pts · ${r.count} ${r.count===1?'viva':'seguidas'} · ${r.pts} pts no total`;
-      again = 'Próxima palavra 💀';
+      text = L(`💀 +${pts} pts · ${r.count} ${r.count===1?'viva':'seguidas'} · ${r.pts} pts no total`, `💀 +${pts} pts · ${r.count} in a row · ${r.pts} pts total`);
+      again = L('Próxima palavra 💀', 'Next word 💀');
     } else {
       const novo = !!r.record;
-      text = `💀 Fim da linha: ${r.count} ${r.count===1?'palavra':'palavras'} · ${r.pts} pts ${novo && r.pts ? '— 🎉 novo recorde!' : `(recorde: ${runs.sudden})`}`;
+      text = L(`💀 Fim da linha: ${r.count} ${r.count===1?'palavra':'palavras'} · ${r.pts} pts ${novo && r.pts ? '— 🎉 novo recorde!' : `(recorde: ${runs.sudden})`}`, `💀 End of the line: ${r.count} ${r.count===1?'word':'words'} · ${r.pts} pts ${novo && r.pts ? '— 🎉 new record!' : `(record: ${runs.sudden})`}`);
       if(novo && r.pts) setTimeout(confetti, 300);
       r.count = 0; r.pts = 0; r.record = false;
-      again = 'Nova rodada';
+      again = L('Nova rodada', 'New round');
     }
   } else if(r.kind==='ladder'){
     if(won){
       r.count++; count = r.count;
       if(r.count>runs.ladder){ runs.ladder = r.count; saveRuns(); }
       const topo = r.count%6===0;
-      text = topo ? `🪜 Chegou ao topo! ${r.count} degraus — a escada recomeça em 3 letras`
-                  : `🪜 Degrau ${r.count}! Próximo: <b>${ladderLen(r.count)} letras</b>`;
+      text = topo ? L(`🪜 Chegou ao topo! ${r.count} degraus — a escada recomeça em 3 letras`, `🪜 You reached the top! ${r.count} steps — the ladder restarts at 3 letters`)
+                  : L(`🪜 Degrau ${r.count}! Próximo: <b>${ladderLen(r.count)} letras</b>`, `🪜 Step ${r.count}! Next: <b>${ladderLen(r.count)} letters</b>`);
       if(topo) setTimeout(confetti, 300);
-      again = 'Subir 🪜';
+      again = L('Subir 🪜', 'Climb 🪜');
     } else {
-      text = r.count ? `🪜 Caiu do degrau ${r.count} (recorde: ${runs.ladder})` : '';
+      text = r.count ? L(`🪜 Caiu do degrau ${r.count} (recorde: ${runs.ladder})`, `🪜 You fell from step ${r.count} (record: ${runs.ladder})`) : '';
       r.count = 0;
-      again = 'Recomeçar a escada';
+      again = L('Recomeçar a escada', 'Restart the ladder');
     }
   } else if(r.kind==='pass'){
     if(won) r.score[r.last]++;
-    again = 'Próxima partida';
+    again = L('Próxima partida', 'Next game');
   }
   renderVarBar();
   return {text, again, count};
@@ -1388,22 +1469,22 @@ function renderVarBar(){
   // anagrama: as letras embaralhadas ficam na barra durante a partida
   if(variant()==='anagram' && state.anagram){
     varBar.hidden = false;
-    varBar.innerHTML = `<span>🔀 Letras:</span><span class="anagram">${state.anagram.map(c=>`<i>${c}</i>`).join('')}</span>`;
+    varBar.innerHTML = `<span>${L('🔀 Letras:','🔀 Letters:')}</span><span class="anagram">${state.anagram.map(c=>`<i>${c}</i>`).join('')}</span>`;
     return;
   }
   const r = state.mode==='free' ? state.run : null;
   if(!r){ varBar.hidden = true; return; }
   varBar.hidden = false;
   if(r.kind==='chain'){
-    varBar.innerHTML = `<span>⛓️ Corrente: <b>${r.count}</b></span><span class="dim">🏆 Recorde ${runs.chain}</span>`;
+    varBar.innerHTML = `<span>⛓️ ${L('Corrente','Chain')}: <b>${r.count}</b></span><span class="dim">🏆 ${L('Recorde','Record')} ${runs.chain}</span>`;
   } else if(r.kind==='ladder'){
-    varBar.innerHTML = `<span>🪜 Degrau <b>${r.count}</b> · ${ladderLen(r.count)} letras</span><span class="dim">🏆 Recorde ${runs.ladder}</span>`;
+    varBar.innerHTML = `<span>🪜 ${L('Degrau','Step')} <b>${r.count}</b> · ${ladderLen(r.count)} ${L('letras','letters')}</span><span class="dim">🏆 ${L('Recorde','Record')} ${runs.ladder}</span>`;
   } else if(r.kind==='sudden'){
-    varBar.innerHTML = `<span>💀 <b>${r.count}</b> ${r.count===1?'viva':'seguidas'}</span><span>🏅 <b>${r.pts}</b> pts</span><span class="dim">🏆 Recorde ${runs.sudden}</span>`;
+    varBar.innerHTML = `<span>💀 <b>${r.count}</b> ${L(r.count===1?'viva':'seguidas', 'in a row')}</span><span>🏅 <b>${r.pts}</b> pts</span><span class="dim">🏆 ${L('Recorde','Record')} ${runs.sudden}</span>`;
   } else {
     const p = PLAYERS[r.turn];
     const playing = state.status==='playing';
-    varBar.innerHTML = `<span class="turn p${r.turn}">${playing ? `Vez de ${p.icon} <b>${p.name}</b>` : 'Fim da partida'}</span>`
+    varBar.innerHTML = `<span class="turn p${r.turn}">${playing ? L(`Vez de ${p.icon} <b>${p.name}</b>`, `${p.icon} <b>${p.name}</b>\'s turn`) : L('Fim da partida', 'Game over')}</span>`
       + `<span>${PLAYERS[0].icon} <b>${r.score[0]}</b> × <b>${r.score[1]}</b> ${PLAYERS[1].icon}</span>`;
   }
 }
@@ -1423,9 +1504,9 @@ function renderEndbar(subTop, subBottom, opts={}){
     ${opts.xp ? xpLineHTML(opts.xp) : ''}
     ${opts.extra || ''}
     <div class="actions">
-      ${opts.again!==false ? `<button class="btn" id="again">${opts.againLabel || 'Jogar de novo'}</button>` : ''}
-      <button class="btn ghost" id="share">Copiar resultado</button>
-      ${opts.noImage ? '' : '<button class="btn ghost" id="shareImg" title="Compartilha o tabuleiro como imagem">🖼️ Imagem</button>'}
+      ${opts.again!==false ? `<button class="btn" id="again">${opts.againLabel || L('Jogar de novo', 'Play again')}</button>` : ''}
+      <button class="btn ghost" id="share">${L('Copiar resultado','Copy result')}</button>
+      ${opts.noImage ? '' : L('<button class="btn ghost" id="shareImg" title="Compartilha o tabuleiro como imagem">🖼️ Imagem</button>', '<button class="btn ghost" id="shareImg" title="Share the board as an image">🖼️ Image</button>')}
     </div>`;
   endEl.innerHTML='';
   endEl.appendChild(box);
@@ -1443,14 +1524,16 @@ function renderEndbar(subTop, subBottom, opts={}){
   scrollAboveKeyboard(box);
 }
 
-const fmtDay = d => d.split('-').reverse().join('/'); // 2026-10-25 → 25/10/2026
+// 2026-10-25 → 25/10/2026 (em inglês: Oct 25, 2026)
+const fmtDay = d => LANG==='en' ? new Date(d+'T12:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})
+  : d.split('-').reverse().join('/');
 /* título do resultado compartilhado (texto e imagem) */
 function shareHead(){
   const placar = `${state.status==='win'?state.row:'X'}/${state.tries}`;
-  if(state.mode==='daily') return `Dito diário ${fmtDay(state.dailyDate || todayStr())} — ${placar}`;
+  if(state.mode==='daily') return L(`Dito diário ${fmtDay(state.dailyDate || todayStr())} — ${placar}`, `Dito daily ${fmtDay(state.dailyDate || todayStr())} — ${placar}`);
   const v = variant();
   const nome = v==='normal' ? '' : `${VARIANTS[v].icon} ${VARIANTS[v].name} · `;
-  return `Dito ${nome}${state.len} letras — ${placar}`;
+  return L(`Dito ${nome}${state.len} letras — ${placar}`, `Dito ${nome}${state.len} letters — ${placar}`);
 }
 /* grades de resultados por tabuleiro: [tabuleiro][linha] = res */
 function resultGrids(){
@@ -1459,7 +1542,7 @@ function resultGrids(){
 function shareText(){
   if(state.mode==='blitz' && state.blitz){
     const b = state.blitz;
-    return `Dito ⚡ Relâmpago — ${b.points} pts (${b.score} ${b.score===1?'palavra':'palavras'}) contra o relógio`;
+    return L(`Dito ⚡ Relâmpago — ${b.points} pts (${b.score} ${b.score===1?'palavra':'palavras'}) contra o relógio`, `Dito ⚡ Blitz — ${b.points} pts (${b.score} ${b.score===1?'word':'words'}) against the clock`);
   }
   const emoji={correct:'🟩',present:'🟦',absent:'⬜'};
   // contagem: a graça é não saber a posição, então o resultado mostra só os totais
@@ -1484,8 +1567,8 @@ function share(){
   let text = shareText();
   if(location.protocol.startsWith('http')) text += '\n' + location.origin + location.pathname;
   navigator.clipboard?.writeText(text)
-    .then(()=>say('Resultado copiado'))
-    .catch(()=>say('Não foi possível copiar'));
+    .then(()=>say(L('Resultado copiado', 'Result copied')))
+    .catch(()=>say(L('Não foi possível copiar', 'Could not copy')));
 }
 
 /* desenha o resultado (só as cores, sem as letras — não estraga a
@@ -1530,29 +1613,32 @@ function shareImage(){
   });
   ctx.fillStyle = col('--ink-soft');
   ctx.font = '500 13px "Space Grotesk", system-ui, sans-serif';
-  ctx.fillText(location.protocol.startsWith('http') ? location.host + location.pathname : 'Dito — adivinhe a palavra', W/2, H - 30);
+  ctx.fillText(location.protocol.startsWith('http') ? location.host + location.pathname : L('Dito — adivinhe a palavra', 'Dito — guess the word'), W/2, H - 30);
   cv.toBlob(async blob=>{
-    if(!blob) return say('Não foi possível gerar a imagem');
+    if(!blob) return say(L('Não foi possível gerar a imagem', 'Could not create the image'));
     const file = new File([blob], 'dito.png', {type:'image/png'});
     try{
       if(navigator.canShare?.({files:[file]})){ await navigator.share({files:[file], text:shareText()}); return; }
     }catch(e){ if(e.name==='AbortError') return; }
     try{
       await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
-      return say('Imagem copiada');
+      return say(L('Imagem copiada', 'Image copied'));
     }catch(e){}
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob); a.download = 'dito.png';
     a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
-    say('Imagem baixada');
+    say(L('Imagem baixada', 'Image downloaded'));
   }, 'image/png');
 }
 
-/* link pro significado no Dicio (o endereço usa a palavra sem acento) */
+/* link pro significado no Dicio (o endereço usa a palavra sem acento);
+   em inglês, no Merriam-Webster */
 function dictLinksHTML(keys){
-  const links = keys.map(k=>`<a href="https://www.dicio.com.br/${encodeURIComponent(k)}/" target="_blank" rel="noopener">${rawForm(k).toUpperCase()}</a>`);
-  return `<div class="dict">📖 O que significa ${links.join(' · ')}?</div>`;
+  const url = k => LANG==='en' ? `https://www.merriam-webster.com/dictionary/${encodeURIComponent(k)}` : `https://www.dicio.com.br/${encodeURIComponent(k)}/`;
+  const links = keys.map(k=>`<a href="${url(k)}" target="_blank" rel="noopener">${rawForm(k).toUpperCase()}</a>`);
+  return LANG==='en' ? `<div class="dict">📖 What does ${links.join(' · ')} mean?</div>`
+    : `<div class="dict">📖 O que significa ${links.join(' · ')}?</div>`;
 }
 
 /* =========================================================
@@ -1575,7 +1661,7 @@ function possibilitiesTrail(rows, pool){
 }
 function trailHTML(trail){
   const nums = trail.map(n=>`<span class="${n===1?'one':''}">${n}</span>`).join('<i>›</i>');
-  return `<div class="trail" title="Quantas palavras ainda eram possíveis depois de cada palpite">🔍 ${nums}<small>palavras possíveis após cada palpite</small></div>`;
+  return `<div class="trail" title="${L('Quantas palavras ainda eram possíveis depois de cada palpite','How many words were still possible after each guess')}">🔍 ${nums}<small>${L('palavras possíveis após cada palpite','possible words after each guess')}</small></div>`;
 }
 
 /* =========================================================
@@ -1599,7 +1685,7 @@ function startCountdown(el){
     const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1);
     const s = Math.max(0, Math.floor((midnight-now)/1000));
     const pad = n => String(n).padStart(2,'0');
-    el.textContent = `⏳ Próxima palavra em ${pad(Math.floor(s/3600))}:${pad(Math.floor(s%3600/60))}:${pad(s%60)}`;
+    el.textContent = `⏳ ${L('Próxima palavra em','Next word in')} ${pad(Math.floor(s/3600))}:${pad(Math.floor(s%3600/60))}:${pad(s%60)}`;
   };
   tick();
   countdownTimer = setInterval(tick, 1000);
@@ -1667,8 +1753,8 @@ function renderBlitzBar(){
     <span class="clock">⏱️ ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}</span>
     <span class="score">🏅 ${b.points} pts</span>
     <span class="words">⚡ ${b.score}${b.combo>=2 ? ` <em>🔥×${b.combo}</em>` : ''}</span>
-    <span class="best${passou?' beaten':''}">${passou ? '🎉 Novo recorde!' : best ? `🏆 Recorde ${best}` : '🏆 Sem recorde ainda'}</span>
-    ${b.deadline || b.over ? '' : `<span class="wait">digite para começar${state.theme ? ` · tema: <b>${GROUP_LABEL[state.theme]}</b>` : ' · troque o tema em Ajustes'}</span>`}
+    <span class="best${passou?' beaten':''}">${passou ? L('🎉 Novo recorde!','🎉 New record!') : best ? `🏆 ${L('Recorde','Record')} ${best}` : L('🏆 Sem recorde ainda','🏆 No record yet')}</span>
+    ${b.deadline || b.over ? '' : `<span class="wait">${L('digite para começar','type to start')}${state.theme ? ` · ${L('tema','theme')}: <b>${GROUP_LABEL[state.theme]}</b>` : L(' · troque o tema em Ajustes',' · change the theme in Settings')}</span>`}
     <div class="fill" style="width:${Math.min(100, left/BLITZ_START*100)}%"></div>`;
 }
 /* fim de uma palavra dentro do relâmpago (chamado por finish()) */
@@ -1685,7 +1771,7 @@ function blitzRoundEnd(won){
     say(`+${pts} pts · +${BLITZ_BONUS}s${b.combo>=2 ? ` · combo ×${b.combo}` : ''}`);
   } else {
     b.combo = 0;
-    say(`Era ${state.answerRaw.toUpperCase()}`);
+    say(L(`Era ${state.answerRaw.toUpperCase()}`, `It was ${state.answerRaw.toUpperCase()}`));
   }
   renderBlitzBar();
   // segura a entrada até a próxima palavra (press() ignora 'ending')
@@ -1699,7 +1785,7 @@ function skipBlitzWord(){
   blitzStartClock();
   b.deadline -= BLITZ_SKIP*1000;
   b.combo = 0;
-  say(`Era ${state.answerRaw.toUpperCase()} (−${BLITZ_SKIP}s)`);
+  say(L(`Era ${state.answerRaw.toUpperCase()} (−${BLITZ_SKIP}s)`, `It was ${state.answerRaw.toUpperCase()} (−${BLITZ_SKIP}s)`));
   newGame();
   renderBlitzBar();
   if(blitzLeft()<=0) endBlitz();
@@ -1733,12 +1819,12 @@ function endBlitz(){
   reportMission({ blitzWords:b.score, mode:'blitz' });
   renderStats();
   renderBlitzBar();
-  const palavras = `${b.score} ${b.score===1?'palavra':'palavras'}`;
+  const palavras = L(`${b.score} ${b.score===1?'palavra':'palavras'}`, `${b.score} ${b.score===1?'word':'words'}`);
   renderEndbar(
-    `⏱️ Tempo esgotado! A última era <b>${state.answerRaw.toUpperCase()}</b>`,
-    recorde ? `🎉 Novo recorde pessoal! · ${palavras}`
-      : pos>=0 ? `${palavras} · ${pos+1}º lugar nos seus recordes`
-      : `${palavras} · recorde: ${blitzBestPts()} pts`,
+    L(`⏱️ Tempo esgotado! A última era <b>${state.answerRaw.toUpperCase()}</b>`, `⏱️ Time\'s up! The last one was <b>${state.answerRaw.toUpperCase()}</b>`),
+    recorde ? L(`🎉 Novo recorde pessoal! · ${palavras}`, `🎉 New personal record! · ${palavras}`)
+      : pos>=0 ? L(`${palavras} · ${pos+1}º lugar nos seus recordes`, `${palavras} · ${ordinal(pos+1)} place in your records`)
+      : L(`${palavras} · recorde: ${blitzBestPts()} pts`, `${palavras} · record: ${blitzBestPts()} pts`),
     { word: `${b.points} pts`, extra: blitzRecordsHTML(entry ? entry.id : null, 5), xp, noImage:true }
   );
   if(recorde) confetti();
@@ -1746,13 +1832,14 @@ function endBlitz(){
 /* tabela dos recordes pessoais; destaca a rodada que acabou de terminar */
 function blitzRecordsHTML(highlightId, max){
   if(!blitzRecords.length) return '';
-  const fmt = d => d.split('-').reverse().slice(0,2).join('/'); // 2026-10-19 → 19/10
+  // 2026-10-19 → 19/10 (em inglês: Oct 19)
+  const fmt = d => LANG==='en' ? new Date(d+'T12:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric'}) : d.split('-').reverse().slice(0,2).join('/');
   const medalha = ['🥇','🥈','🥉'];
   const linhas = blitzRecords.slice(0, max).map((r,i)=>`
     <li class="${r.id===highlightId?'me':''}">
-      <span class="pos">${medalha[i] || (i+1)+'º'}</span>
+      <span class="pos">${medalha[i] || ordinal(i+1, 'º')}</span>
       <b>${r.pts} pts</b>
-      <span>${r.words} ${r.words===1?'palavra':'palavras'}${r.theme && GROUP_LABEL[r.theme] ? ` · ${GROUP_LABEL[r.theme]}` : ''}</span>
+      <span>${r.words} ${L(r.words===1?'palavra':'palavras', r.words===1?'word':'words')}${r.theme && GROUP_LABEL[r.theme] ? ` · ${GROUP_LABEL[r.theme]}` : ''}</span>
       <span class="date">${fmt(r.date)}</span>
     </li>`).join('');
   return `<ol class="records">${linhas}</ol>`;
@@ -1762,37 +1849,37 @@ function blitzRecordsHTML(highlightId, max){
    CONQUISTAS — medalhas salvas neste navegador, listadas no Placar
    ========================================================= */
 const ACHIEVEMENTS = [
-  {id:'primeira',   icon:'🌱', name:'Primeiro acerto', desc:'Vença uma partida'},
-  {id:'mosca',      icon:'🎯', name:'Na mosca',        desc:'Acerte na 1ª tentativa'},
-  {id:'faro',       icon:'👃', name:'Faro fino',       desc:'Acerte em até 2 tentativas'},
-  {id:'fio',        icon:'😅', name:'Por um fio',      desc:'Acerte na última tentativa'},
-  {id:'sozinho',    icon:'🧠', name:'Sem colinha',     desc:'Vença com as dicas desligadas e sem dica de grupo'},
-  {id:'casca',      icon:'🪨', name:'Casca grossa',    desc:'Vença no modo difícil'},
-  {id:'gigante',    icon:'🦕', name:'Palavrão',        desc:'Acerte uma palavra de 8 letras'},
-  {id:'apertado',   icon:'🎲', name:'Sem margem',      desc:'Vença com só 3 tentativas'},
-  {id:'embalado',   icon:'🔥', name:'Embalado',        desc:'Chegue a 5 vitórias seguidas'},
-  {id:'imparavel',  icon:'🚀', name:'Imparável',       desc:'Chegue a 15 vitórias seguidas'},
-  {id:'pontual',    icon:'📅', name:'Pontual',         desc:'Acerte a palavra do dia'},
-  {id:'duelista',   icon:'⚔️', name:'Duelista',        desc:'Vença um desafio recebido por link'},
-  {id:'raio',       icon:'⚡', name:'Raio',            desc:'Faça 5 palavras numa rodada do Relâmpago'},
-  {id:'tempestade', icon:'🌩️', name:'Tempestade',      desc:'Faça 10 palavras numa rodada do Relâmpago'},
-  {id:'explorador', icon:'🧭', name:'Explorador',      desc:'Acerte palavras de 10 grupos temáticos', goal:10, prog:()=>stats.groups.length},
-  {id:'veterano',   icon:'🎖️', name:'Veterano',        desc:'Jogue 50 partidas', goal:50, prog:()=>stats.played},
-  {id:'dupla',      icon:'🧩', name:'Dupla dinâmica',  desc:'Vença um Dueto'},
-  {id:'quarteto',   icon:'🀄', name:'Malabarista',     desc:'Vença um Quarteto'},
-  {id:'malandro',   icon:'😈', name:'Mais malandro',   desc:'Encurrale o Trapaceiro'},
-  {id:'elo',        icon:'⛓️', name:'Corrente forte',  desc:'Faça uma corrente de 5 palavras'},
-  {id:'sobrevivente',icon:'💀', name:'Sobrevivente',   desc:'Acerte 5 seguidas na Morte súbita'},
-  {id:'parceria',   icon:'👥', name:'Parceria',        desc:'Termine uma partida de Passa-e-joga'},
-  {id:'detetive',   icon:'🤥', name:'Detector de mentiras', desc:'Vença o Mentiroso'},
-  {id:'contador',   icon:'🔢', name:'Contador',        desc:'Vença uma partida de Contagem'},
-  {id:'elefante',   icon:'🧠', name:'Memória de elefante', desc:'Vença uma partida de Memória'},
-  {id:'alpinista',  icon:'🪜', name:'Alpinista',       desc:'Chegue ao topo da Escada (8 letras)'},
-  {id:'embaralha',  icon:'🔀', name:'Desembaralhador', desc:'Vença o Anagrama em até 2 tentativas'},
-  {id:'assiduo',    icon:'🗓️', name:'Assíduo',         desc:'Acerte o diário 7 dias seguidos', goal:7, prog:()=>dailyStreak().best},
-  {id:'arqueologo', icon:'📚', name:'Arqueólogo',      desc:'Jogue um dia do arquivo do diário'},
-  {id:'missao',     icon:'🎯', name:'Missão dada',     desc:'Cumpra as 3 missões de um dia'},
-  {id:'nivel10',    icon:'👑', name:'Gente grande',    desc:'Chegue ao nível 10', goal:10, prog:()=>levelOf(xpTotal).level},
+  {id:'primeira',   icon:'🌱', name:L('Primeiro acerto', 'First win'), desc:L('Vença uma partida', 'Win a game')},
+  {id:'mosca',      icon:'🎯', name:L('Na mosca', 'Bullseye'),        desc:L('Acerte na 1ª tentativa', 'Guess it on the 1st try')},
+  {id:'faro',       icon:'👃', name:L('Faro fino', 'Sharp nose'),       desc:L('Acerte em até 2 tentativas', 'Guess it in 2 tries or fewer')},
+  {id:'fio',        icon:'😅', name:L('Por um fio', 'By a thread'),      desc:L('Acerte na última tentativa', 'Guess it on the last try')},
+  {id:'sozinho',    icon:'🧠', name:L('Sem colinha', 'No cheat sheet'),     desc:L('Vença com as dicas desligadas e sem dica de grupo', 'Win with hints off and no group hint')},
+  {id:'casca',      icon:'🪨', name:L('Casca grossa', 'Tough cookie'),    desc:L('Vença no modo difícil', 'Win in hard mode')},
+  {id:'gigante',    icon:'🦕', name:L('Palavrão', 'Mouthful'),        desc:L('Acerte uma palavra de 8 letras', 'Guess an 8-letter word')},
+  {id:'apertado',   icon:'🎲', name:L('Sem margem', 'No margin'),      desc:L('Vença com só 3 tentativas', 'Win with only 3 tries')},
+  {id:'embalado',   icon:'🔥', name:L('Embalado', 'On a roll'),        desc:L('Chegue a 5 vitórias seguidas', 'Reach 5 wins in a row')},
+  {id:'imparavel',  icon:'🚀', name:L('Imparável', 'Unstoppable'),       desc:L('Chegue a 15 vitórias seguidas', 'Reach 15 wins in a row')},
+  {id:'pontual',    icon:'📅', name:L('Pontual', 'Punctual'),         desc:L('Acerte a palavra do dia', 'Guess the word of the day')},
+  {id:'duelista',   icon:'⚔️', name:L('Duelista', 'Duelist'),        desc:L('Vença um desafio recebido por link', 'Win a challenge received by link')},
+  {id:'raio',       icon:'⚡', name:L('Raio', 'Lightning'),            desc:L('Faça 5 palavras numa rodada do Relâmpago', 'Get 5 words in a Blitz round')},
+  {id:'tempestade', icon:'🌩️', name:L('Tempestade', 'Storm'),      desc:L('Faça 10 palavras numa rodada do Relâmpago', 'Get 10 words in a Blitz round')},
+  {id:'explorador', icon:'🧭', name:L('Explorador', 'Explorer'),      desc:L('Acerte palavras de 10 grupos temáticos', 'Guess words from 10 theme groups'), goal:10, prog:()=>stats.groups.length},
+  {id:'veterano',   icon:'🎖️', name:L('Veterano', 'Veteran'),        desc:L('Jogue 50 partidas', 'Play 50 games'), goal:50, prog:()=>stats.played},
+  {id:'dupla',      icon:'🧩', name:L('Dupla dinâmica', 'Dynamic duo'),  desc:L('Vença um Dueto', 'Win a Duet')},
+  {id:'quarteto',   icon:'🀄', name:L('Malabarista', 'Juggler'),     desc:L('Vença um Quarteto', 'Win a Quartet')},
+  {id:'malandro',   icon:'😈', name:L('Mais malandro', 'Outsmarted'),   desc:L('Encurrale o Trapaceiro', 'Corner the Cheater')},
+  {id:'elo',        icon:'⛓️', name:L('Corrente forte', 'Strong chain'),  desc:L('Faça uma corrente de 5 palavras', 'Make a chain of 5 words')},
+  {id:'sobrevivente',icon:'💀', name:L('Sobrevivente', 'Survivor'),   desc:L('Acerte 5 seguidas na Morte súbita', 'Get 5 in a row in Sudden death')},
+  {id:'parceria',   icon:'👥', name:L('Parceria', 'Teamwork'),        desc:L('Termine uma partida de Passa-e-joga', 'Finish a Pass & play game')},
+  {id:'detetive',   icon:'🤥', name:L('Detector de mentiras', 'Lie detector'), desc:L('Vença o Mentiroso', 'Beat the Liar')},
+  {id:'contador',   icon:'🔢', name:L('Contador', 'Counter'),        desc:L('Vença uma partida de Contagem', 'Win a Count game')},
+  {id:'elefante',   icon:'🧠', name:L('Memória de elefante', 'Elephant memory'), desc:L('Vença uma partida de Memória', 'Win a Memory game')},
+  {id:'alpinista',  icon:'🪜', name:L('Alpinista', 'Climber'),       desc:L('Chegue ao topo da Escada (8 letras)', 'Reach the top of the Ladder (8 letters)')},
+  {id:'embaralha',  icon:'🔀', name:L('Desembaralhador', 'Unscrambler'), desc:L('Vença o Anagrama em até 2 tentativas', 'Win the Anagram in 2 tries or fewer')},
+  {id:'assiduo',    icon:'🗓️', name:L('Assíduo', 'Regular'),         desc:L('Acerte o diário 7 dias seguidos', 'Guess the daily word 7 days in a row'), goal:7, prog:()=>dailyStreak().best},
+  {id:'arqueologo', icon:'📚', name:L('Arqueólogo', 'Archaeologist'),      desc:L('Jogue um dia do arquivo do diário', 'Play a day from the daily archive')},
+  {id:'missao',     icon:'🎯', name:L('Missão dada', 'Mission accomplished'),     desc:L('Cumpra as 3 missões de um dia', 'Complete all 3 missions in one day')},
+  {id:'nivel10',    icon:'👑', name:L('Gente grande', 'Big league'),    desc:L('Chegue ao nível 10', 'Reach level 10'), goal:10, prog:()=>levelOf(xpTotal).level},
 ];
 function unlock(id){
   if(ach[id]) return;
@@ -1801,7 +1888,7 @@ function unlock(id){
   ach[id] = todayStr();
   store.set('dito:ach', ach);
   sfx.ach();
-  say(`🏆 Conquista: ${a.icon} ${a.name}`, 3000);
+  say(L(`🏆 Conquista: ${a.icon} ${a.name}`, `🏆 Achievement: ${a.icon} ${a.name}`), 3000);
 }
 function checkAchievements(won){
   const v = variant();
@@ -1845,8 +1932,10 @@ function checkAchievements(won){
    NÍVEIS E XP — toda partida rende XP; o nível dá um título engraçado
    ========================================================= */
 let xpTotal = 0; // localStorage 'dito:xp'
-const TITLES = [[1,'Chutador de Plantão'],[3,'Caçador de Vogais'],[5,'Leitor de Bula'],[8,'Rato de Biblioteca'],
-                [12,'Mestre das Letras'],[16,'Dicionário Ambulante'],[20,'Lenda do Dito']];
+const TITLES = L([[1,'Chutador de Plantão'],[3,'Caçador de Vogais'],[5,'Leitor de Bula'],[8,'Rato de Biblioteca'],
+                  [12,'Mestre das Letras'],[16,'Dicionário Ambulante'],[20,'Lenda do Dito']],
+                 [[1,'Wild Guesser'],[3,'Vowel Hunter'],[5,'Fine Print Reader'],[8,'Bookworm'],
+                  [12,'Letter Master'],[16,'Walking Dictionary'],[20,'Dito Legend']]);
 // XP total pra chegar ao nível L: 0, 100, 300, 600, 1000... (cada nível pede 100 a mais)
 const xpForLevel = L => 50*L*(L-1);
 function levelOf(xp){
@@ -1874,22 +1963,22 @@ function gainXP(n){
   store.set('dito:xp', xpTotal);
   const lv = levelOf(xpTotal);
   if(lv.level>before){
-    setTimeout(()=>{ sfx.ach(); buzz([40,40,80]); say(`⬆️ Nível ${lv.level}: ${lv.title}!`, 3200); }, 700);
+    setTimeout(()=>{ sfx.ach(); buzz([40,40,80]); say(L(`⬆️ Nível ${lv.level}: ${lv.title}!`, `⬆️ Level ${lv.level}: ${lv.title}!`), 3200); }, 700);
     if(lv.level>=10) unlock('nivel10');
   }
   updateProfileBtn();
   return { gained:n, level:lv.level, title:lv.title, up:lv.level>before };
 }
 function xpLineHTML(x){
-  return `<div class="xpline${x.up?' up':''}">+${x.gained} XP · Nível ${x.level} — ${x.title}${x.up?' ⬆️':''}</div>`;
+  return `<div class="xpline${x.up?' up':''}">+${x.gained} XP · ${L('Nível','Level')} ${x.level} — ${x.title}${x.up?' ⬆️':''}</div>`;
 }
 function updateProfileBtn(){
   const b = document.getElementById('btnProfile');
   if(!b) return;
   const done = missions.done.length;
-  b.textContent = `🎯 Nv ${levelOf(xpTotal).level}`;
+  b.textContent = L(`🎯 Nv ${levelOf(xpTotal).level}`, `🎯 Lv ${levelOf(xpTotal).level}`);
   b.classList.toggle('pending', done < missions.list.length);
-  b.title = `Nível e missões do dia (${done}/${missions.list.length} cumpridas)`;
+  b.title = L(`Nível e missões do dia (${done}/${missions.list.length} cumpridas)`, `Level and daily missions (${done}/${missions.list.length} done)`);
 }
 
 /* =========================================================
@@ -1898,20 +1987,20 @@ function updateProfileBtn(){
    ========================================================= */
 const MISSION_XP = 100;
 const MISSIONS = [
-  {id:'win3',   icon:'🏅', text:'Vença 3 partidas', goal:3, ev:e=>e.won},
-  {id:'play5',  icon:'🎮', text:'Termine 5 partidas (o Relâmpago conta)', goal:5, ev:e=>true},
-  {id:'fast',   icon:'⚡', text:'Acerte em até 3 tentativas', ev:e=>e.won && e.variant!=='duo' && e.variant!=='quad' && e.rows<=3},
-  {id:'nohelp', icon:'🧠', text:'Vença sem usar a 💡 Dica de grupo', ev:e=>e.won && !e.groupHint},
-  {id:'daily',  icon:'📅', text:'Jogue a palavra do dia', ev:e=>e.mode==='daily' && !e.archive},
-  {id:'hard',   icon:'🪨', text:'Vença no modo difícil', ev:e=>e.won && e.hard},
-  {id:'duo',    icon:'🧩', text:'Vença um Dueto', ev:e=>e.won && e.variant==='duo'},
-  {id:'quad',   icon:'🀄', text:'Vença um Quarteto', ev:e=>e.won && e.variant==='quad'},
-  {id:'cheat',  icon:'😈', text:'Encurrale o Trapaceiro', ev:e=>e.won && e.variant==='cheat'},
-  {id:'chain3', icon:'⛓️', text:'Faça uma corrente de 3 palavras', ev:e=>e.chain>=3},
-  {id:'sudden3',icon:'💀', text:'Acerte 3 seguidas na Morte súbita', ev:e=>e.sudden>=3},
-  {id:'blitz4', icon:'⏱️', text:'Faça 4 palavras numa rodada do Relâmpago', ev:e=>e.blitzWords>=4},
-  {id:'long',   icon:'🦕', text:'Vença com uma palavra de 7 ou 8 letras', ev:e=>e.won && e.len>=7},
-  {id:'short',  icon:'🐜', text:'Vença com uma palavra de 3 ou 4 letras', ev:e=>e.won && e.len<=4},
+  {id:'win3',   icon:'🏅', text:L('Vença 3 partidas', 'Win 3 games'), goal:3, ev:e=>e.won},
+  {id:'play5',  icon:'🎮', text:L('Termine 5 partidas (o Relâmpago conta)', 'Finish 5 games (Blitz counts)'), goal:5, ev:e=>true},
+  {id:'fast',   icon:'⚡', text:L('Acerte em até 3 tentativas', 'Guess a word in 3 tries or fewer'), ev:e=>e.won && e.variant!=='duo' && e.variant!=='quad' && e.rows<=3},
+  {id:'nohelp', icon:'🧠', text:L('Vença sem usar a 💡 Dica de grupo', 'Win without using the 💡 Group hint'), ev:e=>e.won && !e.groupHint},
+  {id:'daily',  icon:'📅', text:L('Jogue a palavra do dia', 'Play the word of the day'), ev:e=>e.mode==='daily' && !e.archive},
+  {id:'hard',   icon:'🪨', text:L('Vença no modo difícil', 'Win in hard mode'), ev:e=>e.won && e.hard},
+  {id:'duo',    icon:'🧩', text:L('Vença um Dueto', 'Win a Duet'), ev:e=>e.won && e.variant==='duo'},
+  {id:'quad',   icon:'🀄', text:L('Vença um Quarteto', 'Win a Quartet'), ev:e=>e.won && e.variant==='quad'},
+  {id:'cheat',  icon:'😈', text:L('Encurrale o Trapaceiro', 'Corner the Cheater'), ev:e=>e.won && e.variant==='cheat'},
+  {id:'chain3', icon:'⛓️', text:L('Faça uma corrente de 3 palavras', 'Make a chain of 3 words'), ev:e=>e.chain>=3},
+  {id:'sudden3',icon:'💀', text:L('Acerte 3 seguidas na Morte súbita', 'Get 3 in a row in Sudden death'), ev:e=>e.sudden>=3},
+  {id:'blitz4', icon:'⏱️', text:L('Faça 4 palavras numa rodada do Relâmpago', 'Get 4 words in a Blitz round'), ev:e=>e.blitzWords>=4},
+  {id:'long',   icon:'🦕', text:L('Vença com uma palavra de 7 ou 8 letras', 'Win with a 7 or 8-letter word'), ev:e=>e.won && e.len>=7},
+  {id:'short',  icon:'🐜', text:L('Vença com uma palavra de 3 ou 4 letras', 'Win with a 3 or 4-letter word'), ev:e=>e.won && e.len<=4},
   {id:'theme',  icon:'🏷️', text:'', ev:(e,m)=>e.won && e.groups?.includes(m.theme)},
 ];
 const missions = { date:null, list:[], prog:{}, done:[], theme:null };
@@ -1928,7 +2017,7 @@ function dailyMissions(date){
 }
 function missionText(id){
   const m = MISSIONS.find(x=>x.id===id);
-  return id==='theme' ? `Acerte uma palavra do grupo ${GROUP_LABEL[missions.theme]}` : m.text;
+  return id==='theme' ? L(`Acerte uma palavra do grupo ${GROUP_LABEL[missions.theme]}`, `Guess a word from the group ${GROUP_LABEL[missions.theme]}`) : m.text;
 }
 /* garante que as missões são as de hoje (o dia pode virar com a página aberta) */
 function ensureMissions(){
@@ -1949,7 +2038,7 @@ function reportMission(e){
     mudou = true;
     if(missions.prog[id] >= (m.goal||1)){
       missions.done.push(id);
-      setTimeout(()=>{ sfx.ach(); say(`🎯 Missão cumprida: ${missionText(id)} (+${MISSION_XP} XP)`, 3200); }, 1200);
+      setTimeout(()=>{ sfx.ach(); say(L(`🎯 Missão cumprida: ${missionText(id)} (+${MISSION_XP} XP)`, `🎯 Mission complete: ${missionText(id)} (+${MISSION_XP} XP)`), 3200); }, 1200);
       gainXP(MISSION_XP);
     }
   });
@@ -1962,16 +2051,16 @@ function renderProfile(){
   const lv = levelOf(xpTotal);
   const next = TITLES.find(([l])=>l>lv.level);
   document.getElementById('pfLevel').innerHTML = `
-    <div class="lvl"><b>${lv.level}</b><span>nível</span></div>
+    <div class="lvl"><b>${lv.level}</b><span>${L('nível','level')}</span></div>
     <div class="lvinfo">
       <b>${lv.title}</b>
       <div class="xpbar"><div style="width:${Math.round(lv.cur/lv.need*100)}%"></div></div>
-      <small>${lv.cur} / ${lv.need} XP pro nível ${lv.level+1}${next ? ` · próximo título no nível ${next[0]}: ${next[1]}` : ''}</small>
+      <small>${lv.cur} / ${lv.need} XP ${L('pro nível','to level')} ${lv.level+1}${next ? ` · ${L('próximo título no nível','next title at level')} ${next[0]}: ${next[1]}` : ''}</small>
     </div>`;
   document.getElementById('pfMissions').innerHTML = missions.list.map(id=>{
     const m = MISSIONS.find(x=>x.id===id), ok = missions.done.includes(id);
     const prog = m.goal>1 && !ok ? ` <small>(${missions.prog[id]||0}/${m.goal})</small>` : '';
-    return `<li><button class="mis${ok?' ok':''}" data-mission="${id}" title="Ir pra essa missão"><span class="ico">${ok?'✅':m.icon}</span><span>${missionText(id)}${prog}</span><b>+${MISSION_XP}</b></button></li>`;
+    return `<li><button class="mis${ok?' ok':''}" data-mission="${id}" title="${L('Ir pra essa missão','Go to this mission')}"><span class="ico">${ok?'✅':m.icon}</span><span>${missionText(id)}${prog}</span><b>+${MISSION_XP}</b></button></li>`;
   }).join('');
   renderSyncBox();
 }
@@ -2010,7 +2099,7 @@ function goMission(id){
     buildSegments();
     newGame();
     saveSettings();
-    if(id==='hard') say('🪨 Modo difícil ligado');
+    if(id==='hard') say(L('🪨 Modo difícil ligado', '🪨 Hard mode on'));
   }
   // partida já terminada: começa outra pra já valer pra missão
   else if(state.status==='win' || state.status==='lose') startFresh();
@@ -2073,17 +2162,20 @@ function confetti(){
 function challenge(){
   // leva junto as configurações de quem criou o desafio (dicas/modo difícil)
   // para os dois lados jogarem a mesma prova
-  const payload = `${state.len}.${state.tries}.${state.answer}.${state.hints?1:0}.${state.hard?1:0}`;
+  // 6º campo: idioma da palavra (lido pelo script do <head> do index.html, que
+  // abre o jogo nesse idioma pra quem recebe o link)
+  const payload = `${state.len}.${state.tries}.${state.answer}.${state.hints?1:0}.${state.hard?1:0}.${LANG}`;
   const link = location.origin + location.pathname + '#w=' + btoa(encodeURIComponent(payload));
   navigator.clipboard?.writeText(link)
-    .then(()=>say('Link do desafio copiado'))
-    .catch(()=>say('Não foi possível copiar'));
+    .then(()=>say(L('Link do desafio copiado', 'Challenge link copied')))
+    .catch(()=>say(L('Não foi possível copiar', 'Could not copy')));
 }
 function decodeChallenge(hash){
   try{
     const raw = decodeURIComponent(atob(hash));
     const parts = raw.split('.');
-    // links antigos tinham um 6º campo (aceitar qualquer palavra), hoje ignorado
+    // o 6º campo é o idioma ('pt'/'en', já aplicado pelo <head>); links antigos
+    // tinham ali "aceitar qualquer palavra" (0/1), hoje ignorado
     const [lenStr, triesStr, key, hintsStr, hardStr] = parts;
     const len = Number(lenStr), tries = Number(triesStr);
     if(!(len>=3 && len<=8 && tries>=3 && tries<=8)) return null;
@@ -2120,14 +2212,14 @@ function renderStats(){
   document.getElementById('stStreak').textContent=stats.streak;
   document.getElementById('stBlitz').innerHTML = blitzRecords.length
     ? blitzRecordsHTML(null, BLITZ_KEEP)
-    : '<p class="empty">Nenhuma rodada ainda — jogue o ⚡ Relâmpago!</p>';
+    : L('<p class="empty">Nenhuma rodada ainda — jogue o ⚡ Relâmpago!</p>', '<p class="empty">No rounds yet — play ⚡ Blitz!</p>');
   const st = dailyStreak();
   document.getElementById('stDaily').innerHTML =
-    `<div class="streakline">🔥 Sequência: <b>${st.cur}</b> ${st.cur===1?'dia':'dias'} · 🏆 Recorde: <b>${st.best}</b></div>${heatmapHTML()}`;
+    `<div class="streakline">🔥 ${L('Sequência','Streak')}: <b>${st.cur}</b> ${L(st.cur===1?'dia':'dias', st.cur===1?'day':'days')} · 🏆 ${L('Recorde','Best')}: <b>${st.best}</b></div>${heatmapHTML()}`;
   document.getElementById('stRuns').innerHTML =
-    `<span>⛓️ Corrente: <b>${runs.chain}</b> ${runs.chain===1?'elo':'elos'}</span>`
-    + `<span>💀 Morte súbita: <b>${runs.sudden}</b> pts${runs.suddenWords ? ` (${runs.suddenWords} palavras)` : ''}</span>`
-    + `<span>🪜 Escada: <b>${runs.ladder||0}</b> ${runs.ladder===1?'degrau':'degraus'}</span>`;
+    `<span>⛓️ ${L('Corrente','Chain')}: <b>${runs.chain}</b> ${L(runs.chain===1?'elo':'elos', runs.chain===1?'link':'links')}</span>`
+    + `<span>💀 ${L('Morte súbita','Sudden death')}: <b>${runs.sudden}</b> pts${runs.suddenWords ? ` (${runs.suddenWords} ${L('palavras','words')})` : ''}</span>`
+    + `<span>🪜 ${L('Escada','Ladder')}: <b>${runs.ladder||0}</b> ${L(runs.ladder===1?'degrau':'degraus', runs.ladder===1?'step':'steps')}</span>`;
   renderDist();
   renderAch();
 }
@@ -2153,7 +2245,7 @@ function updateModeTabs(){
     t.setAttribute('aria-pressed', on);
   });
   const tv = document.getElementById('tabVariant');
-  tv.textContent = v==='normal' ? '🎲 Variações' : `${VARIANTS[v].icon} ${VARIANTS[v].name}`;
+  tv.textContent = v==='normal' ? L('🎲 Variações','🎲 Variants') : `${VARIANTS[v].icon} ${VARIANTS[v].name}`;
 }
 /* troca a variação do infinito (aba "🎲 Variações") */
 /* devolve tentativas/tamanho guardados ao entrar numa variação que os fixa */
@@ -2219,7 +2311,7 @@ function enterDaily(date=todayStr()){
   if(saved) showDailyDone(date, saved);
   else{
     newGame(dailyAnswerKey(date));
-    if(date!==todayStr()) say(`📚 Arquivo: palavra de ${fmtDay(date)}`);
+    if(date!==todayStr()) say(L(`📚 Arquivo: palavra de ${fmtDay(date)}`, `📚 Archive: word of ${fmtDay(date)}`));
   }
 }
 /* =========================================================
@@ -2227,13 +2319,16 @@ function enterDaily(date=todayStr()){
    As cores não são salvas: são recalculadas a partir da palavra do dia.
    ========================================================= */
 let dailyHist = {};
+// cada idioma tem a sua palavra do dia, então cada um tem o seu histórico
+const DAILY_KEYS = { pt:'dito:dailyHist', en:'dito:dailyHistEn' };
+const DAILY_KEY = DAILY_KEYS[LANG];
 const DAILY_START = '2026-01-01'; // primeiro dia disponível no arquivo
 function saveDaily(){
   const date = state.dailyDate || todayStr();
   const entry = { s: state.status, g: state.rows.map(r=>r.guess) };
   if(date!==todayStr()) entry.a = 1;
   dailyHist[date] = entry;
-  store.set('dito:dailyHist', dailyHist);
+  store.set(DAILY_KEY, dailyHist);
 }
 /* dias seguidos acertando o diário (no dia certo, arquivo não conta) */
 function dailyStreak(){
@@ -2279,10 +2374,10 @@ function showDailyDone(date, saved){
   state.trail = possibilitiesTrail(state.rows, DICT[DAILY_LEN].keys);
   const today = date===todayStr();
   renderEndbar(
-    today ? 'Você já jogou o Dito de hoje' : `Dito de ${fmtDay(date)}${saved.a ? ' (arquivo)' : ''}`,
-    saved.s==='win' ? `Acertou em ${state.rows.length} de ${DAILY_TRIES}` : 'Não foi dessa vez',
+    today ? L('Você já jogou o Dito de hoje', "You've already played today's Dito") : L(`Dito de ${fmtDay(date)}${saved.a ? ' (arquivo)' : ''}`, `Dito of ${fmtDay(date)}${saved.a ? ' (archive)' : ''}`),
+    saved.s==='win' ? L(`Acertou em ${state.rows.length} de ${DAILY_TRIES}`, `Got it in ${state.rows.length} of ${DAILY_TRIES}`) : L('Não foi dessa vez', 'Not this time'),
     { again:false, trail: state.trail, countdown:today, words:[key],
-      extra: today ? '' : '<button class="btn ghost" id="toToday">📅 Voltar para hoje</button>' }
+      extra: today ? '' : L('<button class="btn ghost" id="toToday">📅 Voltar para hoje</button>', '<button class="btn ghost" id="toToday">📅 Back to today</button>') }
   );
 }
 
@@ -2292,7 +2387,7 @@ function dayCell(d, label){
   const h = dailyHist[d], today = todayStr();
   const off = d>today || d<DAILY_START;
   const cls = ['day', h ? (h.s==='win' ? 'win' : 'lose') : '', d===today ? 'today' : '', h?.a ? 'late' : ''].join(' ');
-  const tip = h ? `${fmtDay(d)}: ${h.s==='win' ? `acertou em ${h.g.length}` : 'não acertou'}${h.a?' (arquivo)':''}` : fmtDay(d);
+  const tip = h ? `${fmtDay(d)}: ${h.s==='win' ? L(`acertou em ${h.g.length}`, `got it in ${h.g.length}`) : L('não acertou','missed')}${h.a ? L(' (arquivo)',' (archive)') : ''}` : fmtDay(d);
   return `<button class="${cls}" data-date="${d}" title="${tip}"${off?' disabled':''}>${label ?? ''}</button>`;
 }
 function heatmapHTML(weeks=12){
@@ -2310,11 +2405,12 @@ function heatmapHTML(weeks=12){
   return `<div class="heat">${cols}</div>`;
 }
 let archiveMonth = null; // {y, m} mostrado no arquivo
-const MONTHS = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+const MONTHS = L(['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'],
+                 ['January','February','March','April','May','June','July','August','September','October','November','December']);
 function renderArchive(){
   const {y, m} = archiveMonth;
   const first = new Date(y, m, 1), days = new Date(y, m+1, 0).getDate();
-  let cells = '<span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>';
+  let cells = L('DSTQQSS','SMTWTFS').split('').map(c=>`<span>${c}</span>`).join('');
   for(let i=0;i<first.getDay();i++) cells += '<i></i>';
   for(let d=1; d<=days; d++) cells += dayCell(dateStr(new Date(y, m, d, 12)), d);
   const prevOk = dateStr(new Date(y, m, 0)) >= DAILY_START;
@@ -2322,14 +2418,14 @@ function renderArchive(){
   const st = dailyStreak();
   const jogados = Object.keys(dailyHist).filter(d=>d.startsWith(`${y}-${String(m+1).padStart(2,'0')}`));
   document.getElementById('archiveBody').innerHTML = `
-    <div class="streakline">🔥 Sequência: <b>${st.cur}</b> ${st.cur===1?'dia':'dias'} · 🏆 Recorde: <b>${st.best}</b></div>
+    <div class="streakline">🔥 ${L('Sequência','Streak')}: <b>${st.cur}</b> ${L(st.cur===1?'dia':'dias', st.cur===1?'day':'days')} · 🏆 ${L('Recorde','Best')}: <b>${st.best}</b></div>
     <div class="monthnav">
-      <button class="icon-btn" id="arPrev" ${prevOk?'':'disabled'} aria-label="Mês anterior">‹</button>
+      <button class="icon-btn" id="arPrev" ${prevOk?'':'disabled'} aria-label="${L('Mês anterior','Previous month')}">‹</button>
       <b>${MONTHS[m]} ${y}</b>
-      <button class="icon-btn" id="arNext" ${nextOk?'':'disabled'} aria-label="Próximo mês">›</button>
+      <button class="icon-btn" id="arNext" ${nextOk?'':'disabled'} aria-label="${L('Próximo mês','Next month')}">›</button>
     </div>
     <div class="cal">${cells}</div>
-    <p class="sub">${jogados.length} ${jogados.length===1?'dia jogado':'dias jogados'} neste mês · ${jogados.filter(d=>dailyHist[d].s==='win').length} acertos</p>`;
+    <p class="sub">${jogados.length} ${L(jogados.length===1?'dia jogado':'dias jogados', jogados.length===1?'day played':'days played')} ${L('neste mês','this month')} · ${jogados.filter(d=>dailyHist[d].s==='win').length} ${L('acertos','wins')}</p>`;
   document.getElementById('arPrev').onclick=()=>{ archiveMonth = m ? {y, m:m-1} : {y:y-1, m:11}; renderArchive(); };
   document.getElementById('arNext').onclick=()=>{ archiveMonth = m<11 ? {y, m:m+1} : {y:y+1, m:0}; renderArchive(); };
 }
@@ -2382,7 +2478,7 @@ function updateThemeColor(){
   const next = THEMES[(THEMES.indexOf(t)+1) % THEMES.length];
   const btn = document.getElementById('btnTheme');
   btn.textContent = next==='doido' ? '🌀' : next==='dark' ? '🌙' : '☀️';
-  btn.title = next==='doido' ? 'Visual 3D' : next==='dark' ? 'Visual escuro' : 'Visual claro';
+  btn.title = next==='doido' ? L('Visual 3D','3D look') : next==='dark' ? L('Visual escuro','Dark look') : L('Visual claro','Light look');
   if(t!=='doido'){ board.style.removeProperty('--tx'); board.style.removeProperty('--ty'); }
 }
 document.getElementById('btnTheme').onclick=()=>{
@@ -2424,7 +2520,7 @@ document.getElementById('optHints').onchange=e=>{
   saveSettings();
 };
 document.getElementById('optHard').onchange=e=>{
-  if(e.target.checked && state.row>0){ e.target.checked=false; return say('Ative o modo difícil no início da partida'); }
+  if(e.target.checked && state.row>0){ e.target.checked=false; return say(L('Ative o modo difícil no início da partida', 'Turn on hard mode at the start of a game')); }
   state.hard=e.target.checked;
   // desligou no meio da partida: destrava as verdes que já estavam na linha atual
   if(!state.hard && state.locked.size){ state.locked = new Set(); renderCurrent(); }
@@ -2477,7 +2573,7 @@ const SYNC_FILE = 'dito.json';
 const DRIVE = 'https://www.googleapis.com/drive/v3/files', DRIVE_UP = 'https://www.googleapis.com/upload/drive/v3/files';
 // precisa bater com o "URI de redirecionamento" do cliente OAuth (https://dliedke.github.io/Dito/)
 const SYNC_REDIRECT = location.origin + location.pathname.replace(/index\.html$/, '');
-const SYNC_KEYS = ['dito:xp','dito:ach','dito:stats','dito:blitz','dito:runs','dito:dailyHist','dito:missions'];
+const SYNC_KEYS = ['dito:xp','dito:ach','dito:stats','dito:blitz','dito:runs','dito:dailyHist','dito:dailyHistEn','dito:missions'];
 // user/token/exp ficam em localStorage 'dito:sync'
 const sync = { user:null, token:null, exp:0, timer:null, busy:null, again:false, pulled:0, status:'off' };
 
@@ -2490,8 +2586,14 @@ function canon(v){
 function progressSnapshot(){
   const { played, wins, streak, dist, groups, blitzBest } = stats;
   const { date, list, prog, done, theme } = missions;
+  // o histórico do diário do outro idioma não está carregado: vem direto do localStorage
+  const hist = lang => {
+    if(lang===LANG) return dailyHist;
+    try{ return JSON.parse(localStorage.getItem(DAILY_KEYS[lang])) || {}; }catch(e){ return {}; }
+  };
   return { xp:xpTotal, ach:{...ach}, stats:{played, wins, streak, dist, groups, blitzBest},
-           blitz:blitzRecords, runs:{...runs}, dailyHist, missions:{date, list, prog, done, theme} };
+           blitz:blitzRecords, runs:{...runs}, dailyHist:hist('pt'), dailyHistEn:hist('en'),
+           missions:{date, list, prog, done, theme} };
 }
 /* junta o progresso local (a) com o da nuvem (b). Empate fica com a nuvem,
    senão dois aparelhos ficariam se desmentindo e regravando sem parar */
@@ -2520,12 +2622,18 @@ function mergeProgress(a, b){
                  ladder: max(ra.ladder, rb.ladder) };
   // diário: o mesmo dia jogado nos dois aparelhos fica com o melhor resultado
   // (vitória > derrota; no dia certo > pelo arquivo; menos tentativas)
+  // (um histórico por idioma: dailyHist em português, dailyHistEn em inglês)
   const rank = e => (e.s==='win' ? 2 : 0) + (e.a ? 0 : 1);
-  const dailyHist = {...(b.dailyHist||{})};
-  for(const [d,e] of Object.entries(a.dailyHist||{})){
-    const o = dailyHist[d];
-    if(!o || rank(e)>rank(o) || (rank(e)===rank(o) && e.s==='win' && e.g.length<o.g.length)) dailyHist[d] = e;
-  }
+  const mergeDaily = (ha, hb) => {
+    const out = {...(hb||{})};
+    for(const [d,e] of Object.entries(ha||{})){
+      const o = out[d];
+      if(!o || rank(e)>rank(o) || (rank(e)===rank(o) && e.s==='win' && e.g.length<o.g.length)) out[d] = e;
+    }
+    return out;
+  };
+  const dailyHist = mergeDaily(a.dailyHist, b.dailyHist);
+  const dailyHistEn = mergeDaily(a.dailyHistEn, b.dailyHistEn);
   // missões: as do dia mais recente; no mesmo dia, o maior progresso de cada
   const ma = a.missions||{}, mb = b.missions||{};
   let missions = (ma.date||'') > (mb.date||'') ? ma : mb;
@@ -2535,7 +2643,7 @@ function mergeProgress(a, b){
     const done = list.filter(id=>ma.done?.includes(id) || mb.done?.includes(id));
     missions = { date:mb.date, list, prog, done, theme:mb.theme };
   }
-  return { xp: max(a.xp, b.xp), ach, stats, blitz, runs, dailyHist, missions };
+  return { xp: max(a.xp, b.xp), ach, stats, blitz, runs, dailyHist, dailyHistEn, missions };
 }
 /* troca o progresso local pelo mesclado e redesenha o que mostra progresso */
 function applyProgress(p){
@@ -2545,11 +2653,11 @@ function applyProgress(p){
   Object.assign(stats, p.stats);
   blitzRecords = p.blitz;
   Object.assign(runs, p.runs);
-  dailyHist = p.dailyHist;
+  dailyHist = (LANG==='en' ? p.dailyHistEn : p.dailyHist) || {};
   if(p.missions.date===todayStr()) Object.assign(missions, p.missions);
   // grava direto, sem passar por store.set (não precisa reenviar o que veio da nuvem)
   const raw = { 'dito:xp':xpTotal, 'dito:ach':ach, 'dito:stats':stats, 'dito:blitz':{ records:blitzRecords },
-                'dito:runs':runs, 'dito:dailyHist':dailyHist, 'dito:missions':missions };
+                'dito:runs':runs, 'dito:dailyHist':p.dailyHist||{}, 'dito:dailyHistEn':p.dailyHistEn||{}, 'dito:missions':missions };
   for(const k in raw) try{ localStorage.setItem(k, JSON.stringify(raw[k])); }catch(e){}
   if(levelOf(xpTotal).level>=10) unlock('nivel10');
   updateProfileBtn();
@@ -2615,11 +2723,11 @@ async function syncStart(back){
     try{
       const u = await (await gfetch('https://openidconnect.googleapis.com/v1/userinfo')).json();
       sync.user = { name:u.name, email:u.email, picture:u.picture };
-    }catch(e){ sync.user ||= { name:'Conta Google' }; }
+    }catch(e){ sync.user ||= { name:L('Conta Google', 'Google account') }; }
     saveSyncLocal();
-    if(!saved?.user) say('☁️ Conectado! Seu progresso agora vai junto pra todo aparelho.', 3200);
+    if(!saved?.user) say(L('☁️ Conectado! Seu progresso agora vai junto pra todo aparelho.', '☁️ Connected! Your progress now goes with you to every device.'), 3200);
   } else if(back?.error && !back.silent){
-    say('Login cancelado — o progresso continua salvo neste aparelho.', 2600);
+    say(L('Login cancelado — o progresso continua salvo neste aparelho.', 'Sign-in cancelled — your progress is still saved on this device.'), 2600);
   }
   if(!sync.user) return setSyncStatus('off');
   syncNow();
@@ -2692,24 +2800,27 @@ function syncSignOut(){
   clearTimeout(sync.timer); sync.timer = null;
   try{ localStorage.removeItem('dito:sync'); }catch(e){}
   setSyncStatus('off');
-  say('Você saiu. O progresso continua salvo neste aparelho.', 2600);
+  say(L('Você saiu. O progresso continua salvo neste aparelho.', 'Signed out. Your progress is still saved on this device.'), 2600);
 }
 const escHTML = t => String(t).replace(/[&<>"']/g, c=>`&#${c.charCodeAt(0)};`);
 function renderSyncBox(){
   const box = document.getElementById('pfSync');
   box.hidden = false;
   const u = sync.user;
-  const status = { syncing:'🔄 Sincronizando…', ok:'✅ Progresso sincronizado', error:'⚠️ Sem conexão — sincroniza quando voltar',
-                   expired:'⏳ O login expirou — toque em Reconectar' }[sync.status] || '';
+  const status = L({ syncing:'🔄 Sincronizando…', ok:'✅ Progresso sincronizado', error:'⚠️ Sem conexão — sincroniza quando voltar',
+                     expired:'⏳ O login expirou — toque em Reconectar' },
+                   { syncing:'🔄 Syncing…', ok:'✅ Progress synced', error:'⚠️ Offline — will sync when you\'re back online',
+                     expired:'⏳ Your sign-in expired — tap Reconnect' })[sync.status] || '';
   box.innerHTML = u ? `
     <div class="who">
       ${u.picture ? `<img src="${escHTML(u.picture)}" alt="" referrerpolicy="no-referrer">` : '<span class="ico">👤</span>'}
-      <span><b>${escHTML(u.name || u.email || 'Conta Google')}</b><small>${status}</small></span>
-      ${sync.status==='expired' ? '<button class="btn" data-sync="in">Reconectar</button>' : ''}
-      <button class="btn ghost" data-sync="out">Sair</button>
+      <span><b>${escHTML(u.name || u.email || L('Conta Google', 'Google account'))}</b><small>${status}</small></span>
+      ${sync.status==='expired' ? `<button class="btn" data-sync="in">${L('Reconectar','Reconnect')}</button>` : ''}
+      <button class="btn ghost" data-sync="out">${L('Sair','Sign out')}</button>
     </div>` : `
-    <p>☁️ Entre com o Google pra levar seu XP, conquistas e recordes para qualquer aparelho (ficam numa pasta escondida do seu Google Drive).</p>
-    <button class="btn" data-sync="in">Entrar com Google</button>`;
+    <p>${L('☁️ Entre com o Google pra levar seu XP, conquistas e recordes para qualquer aparelho (ficam numa pasta escondida do seu Google Drive).',
+           '☁️ Sign in with Google to take your XP, achievements and records to any device (they live in a hidden folder in your own Google Drive).')}</p>
+    <button class="btn" data-sync="in">${L('Entrar com Google','Sign in with Google')}</button>`;
 }
 document.getElementById('pfSync').addEventListener('click', e=>{
   const b = e.target.closest('[data-sync]');
@@ -2721,6 +2832,35 @@ document.addEventListener('visibilitychange', ()=>{
   if(document.hidden){ if(sync.timer) syncNow(); }
   else if(sync.user && Date.now()-sync.pulled > 30000) syncNow();
 });
+
+/* =========================================================
+   IDIOMA NA PÁGINA — o index.html é escrito em português; em inglês,
+   cada elemento traduzível traz o texto em data-en (conteúdo) ou
+   data-en-title / data-en-label / data-en-tip / data-en-content (atributos).
+   Blocos grandes (o "Como jogar") vêm nos dois idiomas com data-lang, e o
+   CSS esconde o que não é do idioma atual.
+   ========================================================= */
+function translatePage(){
+  if(LANG!=='en') return;
+  document.querySelectorAll('[data-en]').forEach(el=>{ el.innerHTML = el.dataset.en; });
+  const attrs = { 'data-en-title':'title', 'data-en-label':'aria-label', 'data-en-tip':'data-tip', 'data-en-content':'content' };
+  for(const [from, to] of Object.entries(attrs))
+    document.querySelectorAll(`[${from}]`).forEach(el=>el.setAttribute(to, el.getAttribute(from)));
+}
+translatePage();
+/* seletor de idioma (Ajustes): guarda a escolha e recarrega — o dicionário,
+   os temas e o diário mudam todos juntos. Sem localStorage, vai por ?lang= */
+const selLang = document.getElementById('selLang');
+selLang.value = LANG;
+selLang.onchange = ()=>{
+  const v = selLang.value;
+  let saved = false;
+  try{ localStorage.setItem('dito:lang', v); saved = localStorage.getItem('dito:lang')===v; }catch(e){}
+  const url = new URL(location.href);
+  url.hash = '';
+  if(saved) url.searchParams.delete('lang'); else url.searchParams.set('lang', v);
+  if(url.href===location.href) location.reload(); else location.assign(url.href);
+};
 
 /* =========================================================
    INÍCIO
@@ -2761,9 +2901,9 @@ document.addEventListener('visibilitychange', ()=>{
   if(ms && ms.date===todayStr()) Object.assign(missions, ms);
   ensureMissions();
   updateProfileBtn();
-  dailyHist = (await store.get('dito:dailyHist')) || {};
-  // migração: o formato antigo só guardava o resultado do dia ('dito:daily')
-  const old = await store.get('dito:daily');
+  dailyHist = (await store.get(DAILY_KEY)) || {};
+  // migração: o formato antigo só guardava o resultado do dia ('dito:daily', só em português)
+  const old = LANG==='pt' ? await store.get('dito:daily') : null;
   if(old?.date && !dailyHist[old.date] && Array.isArray(old.rows)){
     dailyHist[old.date] = { s: old.status, g: old.rows.map(r=>r.guess) };
     store.set('dito:dailyHist', dailyHist);
@@ -2801,7 +2941,7 @@ document.addEventListener('visibilitychange', ()=>{
     buildThemeSelect();
     buildSegments();
     newGame(incoming.key);
-    say('Desafio recebido! Adivinhe a palavra do seu amigo.');
+    say(L('Desafio recebido! Adivinhe a palavra do seu amigo.', "Challenge received! Guess your friend's word."));
     return;
   }
 

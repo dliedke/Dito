@@ -1,93 +1,110 @@
 # Dito
 
-Um jogo de adivinhar palavras em português, no estilo Wordle/Termo — 100% front-end, sem build, sem dependências de servidor.
+🇧🇷 [Leia em português](README.pt-BR.md)
 
-🔗 **Jogar** https://dliedke.github.io/Dito/
+A word guessing game in **English and Portuguese**, in the style of Wordle — 100% front-end, no build step, no server dependencies.
 
-## Como jogar 
+🔗 **Play** https://dliedke.github.io/Dito/
 
-Descubra a palavra secreta antes que acabem as tentativas. Cada palpite precisa ter o número de letras escolhido.
+## How to play
 
-- 🟩 **Verde** — a letra está na palavra e na posição certa.
-- 🟦 **Azul** — a letra está na palavra, mas em outra posição.
-- ⬛ **Cinza** — a letra não aparece na palavra.
+Find the secret word before you run out of tries. Every guess must have the chosen number of letters.
 
-Acentos são preenchidos automaticamente: digitar `avo` conta como `avô`. O cedilha entra como `C`.
+- 🟩 **Green** — the letter is in the word and in the right spot.
+- 🟦 **Blue** — the letter is in the word, but in another spot.
+- ⬛ **Gray** — the letter is not in the word.
 
-## Funcionalidades
+In Portuguese, accents are filled in automatically: typing `avo` counts as `avô`, and `ç` is typed as `C`.
 
-- **Tamanho da palavra configurável** — de 3 a 8 letras.
-- **Número de tentativas configurável** — de 3 a 8.
-- **Dicionário próprio em português**, com listas de palavras separadas por tamanho (`wwwroot/script.js`), sem depender de API externa.
-- **Modo difícil** — todas as dicas já reveladas precisam ser reaproveitadas no palpite seguinte.
-- **Aceitar qualquer palavra** — desliga a validação contra o dicionário, permitindo digitar qualquer combinação de letras.
-- **Dicas ao final** — revela progressivamente letras da resposta quando as tentativas acabam (se habilitado).
-- **Tema claro/escuro** com alternância pelo botão ◐, refletido inclusive na cor da barra do navegador no mobile.
-- **Placar** — jogos, vitórias, aproveitamento e sequência, salvo entre visitas.
-- **Efeitos sonoros** sintetizados via Web Audio (tecla, cores do palpite, vitória/derrota, erro), com botão de mudo 🔊/🔇.
-- **Compartilhar resultado** — copia um resumo do jogo para a área de transferência.
-- **Teclado virtual** com teclado físico funcionando em paralelo, e totalmente acessível (`aria-live`, `role="grid"`, etc.).
-- **Responsivo e otimizado para mobile** — respeita as áreas seguras (notch/home indicator) em iOS, alvos de toque maiores, sem "elástico" de scroll, ajustes para telas estreitas e para paisagem.
+## Languages
 
-## Estrutura do projeto
+- The language is **detected from the browser**: Portuguese browsers get Portuguese, every other language gets English.
+- It can be changed at any time in **Settings → Language** (the choice is remembered in the browser). `?lang=en` / `?lang=pt` in the URL also works.
+- Each language has its **own word list, theme groups and word of the day**, and the daily history is kept separately per language. XP, achievements, stats and records are shared.
+- Challenge links carry the language they were created in, so a friend always gets a word from the right dictionary.
+
+## Features
+
+- **Configurable word length** — 3 to 8 letters.
+- **Configurable number of tries** — 3 to 8.
+- **Built-in dictionaries** in English and Portuguese, grouped by theme (animals, food, emotions, places...), with no external API.
+- **Modes** — 📅 Daily (one word a day, the same for everyone, with an archive of past days), ♾️ Unlimited, ⚡ Blitz (against the clock) and 🎲 Variants (Duet, Quartet, Cheater, Chain, Sudden death, Pass & play, Liar, Count, Memory, Ladder and Anagram).
+- **Themes** — limit the draw to one category; the 💡 group hint reveals the theme of the secret word.
+- **Hard mode** — every revealed clue must be reused in the next guess.
+- **Hints at the end** — on the last two tries the game reveals a letter, then a letter's position (optional).
+- **Challenge by link** — 🔗 copies a link with the current word for a friend to try.
+- **XP, levels, daily missions and achievements**, with optional sync between devices through your own Google Drive.
+- **End-of-game analysis** — how many words were still possible after each guess, plus a dictionary link for the answer.
+- **Share** your result as text or as an image (colors only, no spoilers).
+- **Light / dark / 3D looks**, synthesized sound effects (Web Audio) and vibration on supported phones.
+- **Accessible virtual keyboard**, working alongside the physical keyboard.
+- **Responsive and mobile-friendly** — respects safe areas (notch/home indicator) on iOS, larger touch targets, landscape tweaks.
+
+## Project structure
 
 ```
-Dito.slnx           → solution do Visual Studio
-Dito.csproj          → projeto ASP.NET Core (só hospeda os arquivos estáticos)
-Program.cs           → host mínimo, serve wwwroot/ com UseStaticFiles
+Dito.slnx            → Visual Studio solution
+Dito.csproj          → ASP.NET Core project (only hosts the static files)
+Program.cs           → minimal host, serves wwwroot/ with UseStaticFiles
 Properties/
-  launchSettings.json → perfis de execução (F5 abre o navegador)
+  launchSettings.json → run profiles (F5 opens the browser)
 wwwroot/
-  index.html          → estrutura da página (HTML)
-  style.css           → visual, temas e responsividade
-  script.js           → lógica do jogo, dicionário e estado
+  index.html          → page structure (HTML), with English text in data-en attributes
+  style.css           → look, themes and responsiveness
+  script.js           → game logic, dictionaries (pt + en) and state
 ```
 
-O jogo em si (`wwwroot/`) é 100% front-end — HTML/CSS/JS puro, sem build e sem
-chamadas a servidor. O projeto .NET existe só como um jeito prático de abrir o
-repositório com solution/projeto no Visual Studio e rodar localmente com F5;
-ele não tem nenhuma lógica de jogo, API nem estado no servidor.
+The game itself (`wwwroot/`) is 100% front-end — plain HTML/CSS/JS, no build and no
+server calls. The .NET project only exists as a convenient way to open the repository
+as a solution in Visual Studio and run it locally with F5; it has no game logic, API
+or server-side state.
 
-Sem dependências externas além das fontes do Google Fonts (`Bricolage Grotesque` e `Space Grotesk`).
+No external dependencies other than Google Fonts (`Bricolage Grotesque` and `Space Grotesk`).
 
-## Rodando localmente
+## Running locally
 
-**Com o Visual Studio:** abra `Dito.slnx` e aperte F5 (ou Ctrl+F5). O navegador abre
-sozinho em `http://localhost:5080/`.
+**With Visual Studio:** open `Dito.slnx` and press F5 (or Ctrl+F5). The browser opens
+at `http://localhost:5080/`.
 
-**Com a CLI do .NET** (SDK 8 ou mais novo):
+**With the .NET CLI** (SDK 8 or newer):
 
 ```bash
 dotnet run
 ```
 
-**Sem o .NET**, como é um site 100% estático, também dá pra abrir `wwwroot/index.html`
-direto no navegador, ou servir a pasta com qualquer servidor simples:
+**Without .NET**, since it is a fully static site, you can open `wwwroot/index.html`
+directly in the browser, or serve the folder with any simple server:
 
 ```bash
 npx serve wwwroot
-# ou
+```
+
+```bash
 python -m http.server --directory wwwroot
 ```
 
-Depois acesse `http://localhost:<porta>/`.
+Then open `http://localhost:<port>/`. Add `?lang=en` or `?lang=pt` to force a language.
 
-## Publicando no GitHub Pages
+## Publishing to GitHub Pages
 
-O deploy é automático via GitHub Actions (`.github/workflows/pages.yml`): a cada
-push na branch `main`, o workflow publica o conteúdo de `wwwroot/` no GitHub Pages
-(sem build, é só uma cópia dos arquivos estáticos).
+Deployment is automatic through GitHub Actions (`.github/workflows/pages.yml`): on every
+push to `main`, the workflow publishes the contents of `wwwroot/` to GitHub Pages (no
+build, just a copy of the static files).
 
-1. Suba o projeto para o repositório [github.com/dliedke/Dito](https://github.com/dliedke/Dito) (branch `main`).
-2. No GitHub, vá em **Settings → Pages**.
-3. Em **Source**, selecione **GitHub Actions** (em vez de "Deploy from a branch").
-4. Dê um push na `main` (ou rode o workflow manualmente em **Actions**) e aguarde o deploy (leva cerca de 1 minuto).
-5. O jogo ficará disponível em `https://dliedke.github.io/Dito/`.
+1. Push the project to [github.com/dliedke/Dito](https://github.com/dliedke/Dito) (branch `main`).
+2. On GitHub, go to **Settings → Pages**.
+3. Under **Source**, select **GitHub Actions** (instead of "Deploy from a branch").
+4. Push to `main` (or run the workflow manually under **Actions**) and wait for the deploy (about 1 minute).
+5. The game will be available at `https://dliedke.github.io/Dito/`.
 
-## Persistência de dados
+## Data persistence
 
-Configurações (tema, tamanho da palavra, tentativas, modos) e o placar da sessão são salvos no `localStorage` do navegador, então ficam guardados entre visitas no mesmo dispositivo/navegador. Se o `localStorage` estiver indisponível (ex.: modo privado com restrições), o jogo detecta isso e continua funcionando normalmente, só sem persistir os dados.
+Settings (look, word length, tries, modes, language) and progress are saved in the
+browser's `localStorage`, so they persist between visits on the same device/browser.
+If `localStorage` is unavailable (e.g. restricted private mode), the game detects it
+and keeps working, just without saving. Signing in with Google (under 🎯) optionally
+syncs progress through a hidden file in your own Google Drive.
 
-## Licença
+## License
 
-Defina aqui a licença do projeto (por exemplo, MIT), se desejar deixá-lo aberto.
+Define the project's license here (for example, MIT) if you want to make it open.
